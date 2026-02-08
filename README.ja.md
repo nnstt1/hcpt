@@ -78,6 +78,21 @@ hcpt workspace show my-workspace --org my-org
 hcpt run list --org my-org -w my-workspace
 ```
 
+### 設定の変更
+
+```bash
+# デフォルトの Organization を設定
+hcpt config set org my-org
+
+# API アドレスを設定
+hcpt config set address https://tfe.example.com
+
+# API トークンを設定
+hcpt config set token your-api-token
+```
+
+値は `~/.hcpt.yaml` に保存されます。既存の設定値は保持されます。
+
 ### 共通オプション
 
 | フラグ | 説明 |

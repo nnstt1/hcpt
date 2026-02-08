@@ -78,6 +78,21 @@ hcpt workspace show my-workspace --org my-org
 hcpt run list --org my-org -w my-workspace
 ```
 
+### Configure Settings
+
+```bash
+# Set default organization
+hcpt config set org my-org
+
+# Set API address
+hcpt config set address https://tfe.example.com
+
+# Set API token
+hcpt config set token your-api-token
+```
+
+Values are saved to `~/.hcpt.yaml`. Existing values are preserved.
+
 ### Common Options
 
 | Flag | Description |

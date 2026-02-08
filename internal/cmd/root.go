@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/nnstt1/hcpt/internal/cmd/config"
 	"github.com/nnstt1/hcpt/internal/cmd/org"
 	"github.com/nnstt1/hcpt/internal/cmd/run"
 	"github.com/nnstt1/hcpt/internal/cmd/workspace"
@@ -34,6 +35,7 @@ func init() {
 	_ = viper.BindPFlag("org", rootCmd.PersistentFlags().Lookup("org"))
 	_ = viper.BindPFlag("json", rootCmd.PersistentFlags().Lookup("json"))
 
+	rootCmd.AddCommand(config.NewCmdConfig())
 	rootCmd.AddCommand(org.NewCmdOrg())
 	rootCmd.AddCommand(workspace.NewCmdWorkspace())
 	rootCmd.AddCommand(run.NewCmdRun())
