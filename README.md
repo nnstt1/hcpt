@@ -16,10 +16,22 @@ go install github.com/nnstt1/hcpt@latest
 
 ## 認証
 
-API トークンを以下のいずれかで設定します（上が優先）:
+API トークンを以下の優先順位で探索します:
 
 1. 環境変数 `TFE_TOKEN`
 2. 設定ファイル `~/.hcpt.yaml` の `token` フィールド
+3. Terraform CLI の認証情報（以下の順で探索）
+   1. 環境変数 `TF_TOKEN_<hostname>`（ホスト名のドット・ハイフンをアンダースコアに変換。例: `TF_TOKEN_app_terraform_io`）
+   2. `~/.terraform.d/credentials.tfrc.json`（`terraform login` が生成する JSON）
+   3. `~/.terraformrc`（HCL 形式の credentials ブロック）
+
+`terraform login` で認証済みであれば、追加の設定なしで hcpt を利用できます。
+
+```bash
+# terraform login で認証済みの場合、そのまま利用可能
+terraform login
+hcpt org list
+```
 
 ```yaml
 # ~/.hcpt.yaml
@@ -29,6 +41,8 @@ org: "my-organization"
 ```
 
 アドレスは環境変数 `TFE_ADDRESS` でも指定できます。
+
+`~/.terraformrc` のパスは環境変数 `TF_CLI_CONFIG_FILE` で上書きできます。
 
 ## 使い方
 

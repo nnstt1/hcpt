@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"net/url"
 
 	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/viper"
@@ -32,11 +33,16 @@ type ClientWrapper struct {
 // NewClientWrapper creates a new ClientWrapper using configuration from Viper.
 func NewClientWrapper() (*ClientWrapper, error) {
 	token := viper.GetString("token")
+	address := viper.GetString("address")
+
 	if token == "" {
-		return nil, fmt.Errorf("API token is required: set TFE_TOKEN environment variable or 'token' in config file")
+		hostname := hostnameFromAddress(address)
+		token = findTerraformToken(hostname)
 	}
 
-	address := viper.GetString("address")
+	if token == "" {
+		return nil, fmt.Errorf("API token is required: set TFE_TOKEN environment variable, 'token' in config file, or run 'terraform login'")
+	}
 
 	config := &tfe.Config{
 		Token:   token,
@@ -49,6 +55,18 @@ func NewClientWrapper() (*ClientWrapper, error) {
 	}
 
 	return &ClientWrapper{client: client}, nil
+}
+
+// hostnameFromAddress extracts hostname from an address URL.
+func hostnameFromAddress(address string) string {
+	if address == "" {
+		return "app.terraform.io"
+	}
+	u, err := url.Parse(address)
+	if err != nil || u.Host == "" {
+		return address
+	}
+	return u.Hostname()
 }
 
 func (c *ClientWrapper) ListOrganizations(ctx context.Context, opts *tfe.OrganizationListOptions) (*tfe.OrganizationList, error) {
