@@ -48,13 +48,24 @@ The path to `~/.terraformrc` can be overridden with the `TF_CLI_CONFIG_FILE` env
 
 ## Usage
 
-### List Organizations
+### Organizations
 
 ```bash
+# List organizations
 hcpt org list
+
+# Show organization details, subscription plan, and entitlements
+hcpt org show --org my-org
 ```
 
-### List Workspaces
+### Projects
+
+```bash
+# List projects in an organization
+hcpt project list --org my-org
+```
+
+### Workspaces
 
 ```bash
 hcpt workspace list --org my-org
@@ -64,21 +75,47 @@ hcpt workspace list --org my-org --search "prod"
 
 # Alias `ws` is also available
 hcpt ws list --org my-org
-```
 
-### Show Workspace Details
-
-```bash
+# Show workspace details
 hcpt workspace show my-workspace --org my-org
 ```
 
-### List Runs
+### Runs
 
 ```bash
+# List runs for a workspace
 hcpt run list --org my-org -w my-workspace
+
+# Show run details
+hcpt run show run-abc123
 ```
 
-### Configure Settings
+### Variables
+
+```bash
+# List variables for a workspace
+hcpt variable list --org my-org -w my-workspace
+
+# Alias `var` is also available
+hcpt var list --org my-org -w my-workspace
+
+# Create or update a variable (upsert)
+hcpt variable set MY_KEY "my-value" --org my-org -w my-workspace
+
+# Set an environment variable
+hcpt variable set AWS_REGION "us-east-1" --org my-org -w my-workspace --category env
+
+# Set a sensitive variable
+hcpt variable set SECRET_KEY "s3cret" --org my-org -w my-workspace --sensitive
+
+# Set an HCL variable
+hcpt variable set my_list '["a","b"]' --org my-org -w my-workspace --hcl
+
+# Delete a variable
+hcpt variable delete MY_KEY --org my-org -w my-workspace
+```
+
+### Configuration
 
 ```bash
 # Set default organization
@@ -89,6 +126,12 @@ hcpt config set address https://tfe.example.com
 
 # Set API token
 hcpt config set token your-api-token
+
+# Get a configuration value
+hcpt config get org
+
+# List all configuration values (tokens are masked)
+hcpt config list
 ```
 
 Values are saved to `~/.hcpt.yaml`. Existing values are preserved.

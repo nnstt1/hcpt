@@ -12,6 +12,7 @@ func NewCmdOrg() *cobra.Command {
 	}
 
 	cmd.AddCommand(newCmdOrgList())
+	cmd.AddCommand(newCmdOrgShow())
 
 	return cmd
 }

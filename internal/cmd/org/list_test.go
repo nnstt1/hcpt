@@ -29,6 +29,14 @@ func (m *mockOrgService) ListOrganizations(_ context.Context, _ *tfe.Organizatio
 	}, nil
 }
 
+func (m *mockOrgService) ReadOrganization(_ context.Context, _ string) (*tfe.Organization, error) {
+	return nil, nil
+}
+
+func (m *mockOrgService) ReadEntitlements(_ context.Context, _ string) (*tfe.Entitlements, error) {
+	return nil, nil
+}
+
 func TestOrgList_Table(t *testing.T) {
 	viper.Reset()
 	viper.Set("json", false)

@@ -10,12 +10,6 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-var validKeys = map[string]bool{
-	"org":     true,
-	"token":   true,
-	"address": true,
-}
-
 func newCmdConfigSet() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "set <key> <value>",
@@ -35,7 +29,7 @@ Available keys:
 }
 
 func runConfigSet(key, value string) error {
-	if !validKeys[key] {
+	if !ValidKeys[key] {
 		return fmt.Errorf("unknown config key %q (valid keys: org, token, address)", key)
 	}
 

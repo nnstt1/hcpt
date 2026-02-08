@@ -9,7 +9,9 @@ import (
 
 	"github.com/nnstt1/hcpt/internal/cmd/config"
 	"github.com/nnstt1/hcpt/internal/cmd/org"
+	"github.com/nnstt1/hcpt/internal/cmd/project"
 	"github.com/nnstt1/hcpt/internal/cmd/run"
+	"github.com/nnstt1/hcpt/internal/cmd/variable"
 	"github.com/nnstt1/hcpt/internal/cmd/workspace"
 )
 
@@ -37,8 +39,10 @@ func init() {
 
 	rootCmd.AddCommand(config.NewCmdConfig())
 	rootCmd.AddCommand(org.NewCmdOrg())
+	rootCmd.AddCommand(project.NewCmdProject())
 	rootCmd.AddCommand(workspace.NewCmdWorkspace())
 	rootCmd.AddCommand(run.NewCmdRun())
+	rootCmd.AddCommand(variable.NewCmdVariable())
 }
 
 func initConfig() {

@@ -1,4 +1,4 @@
-package run
+package variable
 
 import (
 	"bytes"
@@ -7,74 +7,87 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/viper"
 )
 
-type mockRunListService struct {
-	workspace  *tfe.Workspace
-	runs       []*tfe.Run
-	readErr    error
-	listErr    error
-	run        *tfe.Run
-	readRunErr error
+type mockVariableListService struct {
+	workspace *tfe.Workspace
+	variables []*tfe.Variable
+	readErr   error
+	listErr   error
+	createVar *tfe.Variable
+	createErr error
+	updateVar *tfe.Variable
+	updateErr error
+	deleteErr error
 }
 
-func (m *mockRunListService) ReadWorkspace(_ context.Context, _ string, _ string) (*tfe.Workspace, error) {
+func (m *mockVariableListService) ListWorkspaces(_ context.Context, _ string, _ *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error) {
+	return nil, nil
+}
+
+func (m *mockVariableListService) ReadWorkspace(_ context.Context, _ string, _ string) (*tfe.Workspace, error) {
 	if m.readErr != nil {
 		return nil, m.readErr
 	}
 	return m.workspace, nil
 }
 
-func (m *mockRunListService) ListWorkspaces(_ context.Context, _ string, _ *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error) {
-	return nil, nil
-}
-
-func (m *mockRunListService) ListRuns(_ context.Context, _ string, _ *tfe.RunListOptions) (*tfe.RunList, error) {
+func (m *mockVariableListService) ListVariables(_ context.Context, _ string, _ *tfe.VariableListOptions) (*tfe.VariableList, error) {
 	if m.listErr != nil {
 		return nil, m.listErr
 	}
-	return &tfe.RunList{
-		Items: m.runs,
+	return &tfe.VariableList{
+		Items: m.variables,
 	}, nil
 }
 
-func (m *mockRunListService) ReadRun(_ context.Context, _ string) (*tfe.Run, error) {
-	if m.readRunErr != nil {
-		return nil, m.readRunErr
+func (m *mockVariableListService) CreateVariable(_ context.Context, _ string, _ tfe.VariableCreateOptions) (*tfe.Variable, error) {
+	if m.createErr != nil {
+		return nil, m.createErr
 	}
-	return m.run, nil
+	return m.createVar, nil
 }
 
-func TestRunList_Table(t *testing.T) {
+func (m *mockVariableListService) UpdateVariable(_ context.Context, _ string, _ string, _ tfe.VariableUpdateOptions) (*tfe.Variable, error) {
+	if m.updateErr != nil {
+		return nil, m.updateErr
+	}
+	return m.updateVar, nil
+}
+
+func (m *mockVariableListService) DeleteVariable(_ context.Context, _ string, _ string) error {
+	return m.deleteErr
+}
+
+func TestVariableList_Table(t *testing.T) {
 	viper.Reset()
 	viper.Set("json", false)
 	viper.Set("org", "test-org")
 
-	mock := &mockRunListService{
+	mock := &mockVariableListService{
 		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		runs: []*tfe.Run{
+		variables: []*tfe.Variable{
 			{
-				ID:         "run-123",
-				Status:     tfe.RunApplied,
-				Message:    "Apply complete",
-				HasChanges: true,
-				CreatedAt:  time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
+				Key:       "AWS_REGION",
+				Value:     "us-east-1",
+				Category:  tfe.CategoryTerraform,
+				Sensitive: false,
+				HCL:       false,
 			},
 			{
-				ID:         "run-456",
-				Status:     tfe.RunPlanned,
-				Message:    "Queued by user",
-				HasChanges: false,
-				CreatedAt:  time.Date(2024, 3, 14, 10, 0, 0, 0, time.UTC),
+				Key:       "SECRET_KEY",
+				Value:     "",
+				Category:  tfe.CategoryEnv,
+				Sensitive: true,
+				HCL:       false,
 			},
 		},
 	}
 
-	cmd := newCmdRunListWith(func() (runListService, error) {
+	cmd := newCmdVariableListWith(func() (variableListService, error) {
 		return mock, nil
 	})
 
@@ -89,20 +102,27 @@ func TestRunList_Table(t *testing.T) {
 	}
 }
 
-func TestRunList_Table_Output(t *testing.T) {
+func TestVariableList_Table_Output(t *testing.T) {
 	viper.Reset()
 	viper.Set("json", false)
 	viper.Set("org", "test-org")
 
-	mock := &mockRunListService{
+	mock := &mockVariableListService{
 		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		runs: []*tfe.Run{
+		variables: []*tfe.Variable{
 			{
-				ID:         "run-123",
-				Status:     tfe.RunApplied,
-				Message:    "Apply complete",
-				HasChanges: true,
-				CreatedAt:  time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
+				Key:       "AWS_REGION",
+				Value:     "us-east-1",
+				Category:  tfe.CategoryTerraform,
+				Sensitive: false,
+				HCL:       false,
+			},
+			{
+				Key:       "SECRET_KEY",
+				Value:     "",
+				Category:  tfe.CategoryEnv,
+				Sensitive: true,
+				HCL:       false,
 			},
 		},
 	}
@@ -111,7 +131,7 @@ func TestRunList_Table_Output(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runRunList(mock, "test-org", "my-ws")
+	err := runVariableList(mock, "test-org", "my-ws")
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -124,27 +144,27 @@ func TestRunList_Table_Output(t *testing.T) {
 	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
-	for _, want := range []string{"ID", "STATUS", "run-123", "applied", "Apply complete", "true", "2024-03-15 12:00:00"} {
+	for _, want := range []string{"KEY", "VALUE", "CATEGORY", "AWS_REGION", "us-east-1", "terraform", "(sensitive)"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("expected %q in output, got:\n%s", want, got)
 		}
 	}
 }
 
-func TestRunList_JSON(t *testing.T) {
+func TestVariableList_JSON(t *testing.T) {
 	viper.Reset()
 	viper.Set("json", true)
 	viper.Set("org", "test-org")
 
-	mock := &mockRunListService{
+	mock := &mockVariableListService{
 		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		runs: []*tfe.Run{
+		variables: []*tfe.Variable{
 			{
-				ID:         "run-123",
-				Status:     tfe.RunApplied,
-				Message:    "Apply complete",
-				HasChanges: true,
-				CreatedAt:  time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
+				Key:       "AWS_REGION",
+				Value:     "us-east-1",
+				Category:  tfe.CategoryTerraform,
+				Sensitive: false,
+				HCL:       false,
 			},
 		},
 	}
@@ -153,7 +173,7 @@ func TestRunList_JSON(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runRunList(mock, "test-org", "my-ws")
+	err := runVariableList(mock, "test-org", "my-ws")
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -166,24 +186,24 @@ func TestRunList_JSON(t *testing.T) {
 	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
-	for _, want := range []string{`"id": "run-123"`, `"status": "applied"`, `"has_changes": true`} {
+	for _, want := range []string{`"key": "AWS_REGION"`, `"value": "us-east-1"`, `"category": "terraform"`} {
 		if !strings.Contains(got, want) {
 			t.Errorf("expected %q in JSON output, got:\n%s", want, got)
 		}
 	}
 }
 
-func TestRunList_Empty(t *testing.T) {
+func TestVariableList_Empty(t *testing.T) {
 	viper.Reset()
 	viper.Set("json", false)
 	viper.Set("org", "test-org")
 
-	mock := &mockRunListService{
+	mock := &mockVariableListService{
 		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		runs:      []*tfe.Run{},
+		variables: []*tfe.Variable{},
 	}
 
-	cmd := newCmdRunListWith(func() (runListService, error) {
+	cmd := newCmdVariableListWith(func() (variableListService, error) {
 		return mock, nil
 	})
 
@@ -198,16 +218,16 @@ func TestRunList_Empty(t *testing.T) {
 	}
 }
 
-func TestRunList_ListRunsError(t *testing.T) {
+func TestVariableList_ListError(t *testing.T) {
 	viper.Reset()
 	viper.Set("org", "test-org")
 
-	mock := &mockRunListService{
+	mock := &mockVariableListService{
 		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		listErr:   fmt.Errorf("runs api error"),
+		listErr:   fmt.Errorf("variables api error"),
 	}
 
-	cmd := newCmdRunListWith(func() (runListService, error) {
+	cmd := newCmdVariableListWith(func() (variableListService, error) {
 		return mock, nil
 	})
 
@@ -222,16 +242,16 @@ func TestRunList_ListRunsError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "runs api error") {
-		t.Errorf("expected 'runs api error', got: %v", err)
+	if !strings.Contains(err.Error(), "variables api error") {
+		t.Errorf("expected 'variables api error', got: %v", err)
 	}
 }
 
-func TestRunList_ClientError(t *testing.T) {
+func TestVariableList_ClientError(t *testing.T) {
 	viper.Reset()
 	viper.Set("org", "test-org")
 
-	cmd := newCmdRunListWith(func() (runListService, error) {
+	cmd := newCmdVariableListWith(func() (variableListService, error) {
 		return nil, fmt.Errorf("token missing")
 	})
 
@@ -251,11 +271,11 @@ func TestRunList_ClientError(t *testing.T) {
 	}
 }
 
-func TestRunList_NoOrg(t *testing.T) {
+func TestVariableList_NoOrg(t *testing.T) {
 	viper.Reset()
 
-	cmd := newCmdRunListWith(func() (runListService, error) {
-		return &mockRunListService{}, nil
+	cmd := newCmdVariableListWith(func() (variableListService, error) {
+		return &mockVariableListService{}, nil
 	})
 
 	var buf bytes.Buffer
@@ -274,12 +294,12 @@ func TestRunList_NoOrg(t *testing.T) {
 	}
 }
 
-func TestRunList_NoWorkspace(t *testing.T) {
+func TestVariableList_NoWorkspace(t *testing.T) {
 	viper.Reset()
 	viper.Set("org", "test-org")
 
-	cmd := newCmdRunListWith(func() (runListService, error) {
-		return &mockRunListService{}, nil
+	cmd := newCmdVariableListWith(func() (variableListService, error) {
+		return &mockVariableListService{}, nil
 	})
 
 	var buf bytes.Buffer
@@ -297,15 +317,15 @@ func TestRunList_NoWorkspace(t *testing.T) {
 	}
 }
 
-func TestRunList_WorkspaceReadError(t *testing.T) {
+func TestVariableList_WorkspaceReadError(t *testing.T) {
 	viper.Reset()
 	viper.Set("org", "test-org")
 
-	mock := &mockRunListService{
+	mock := &mockVariableListService{
 		readErr: fmt.Errorf("workspace not found"),
 	}
 
-	cmd := newCmdRunListWith(func() (runListService, error) {
+	cmd := newCmdVariableListWith(func() (variableListService, error) {
 		return mock, nil
 	})
 
@@ -322,23 +342,5 @@ func TestRunList_WorkspaceReadError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "workspace not found") {
 		t.Errorf("expected 'workspace not found' error, got: %v", err)
-	}
-}
-
-func TestTruncate(t *testing.T) {
-	tests := []struct {
-		input    string
-		maxLen   int
-		expected string
-	}{
-		{"short", 10, "short"},
-		{"exactly ten", 11, "exactly ten"},
-		{"this is a very long message that should be truncated", 20, "this is a very lo..."},
-	}
-	for _, tt := range tests {
-		got := truncate(tt.input, tt.maxLen)
-		if got != tt.expected {
-			t.Errorf("truncate(%q, %d) = %q, want %q", tt.input, tt.maxLen, got, tt.expected)
-		}
 	}
 }

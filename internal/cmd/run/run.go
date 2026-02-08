@@ -12,6 +12,7 @@ func NewCmdRun() *cobra.Command {
 	}
 
 	cmd.AddCommand(newCmdRunList())
+	cmd.AddCommand(newCmdRunShow())
 
 	return cmd
 }

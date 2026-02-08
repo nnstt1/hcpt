@@ -22,9 +22,18 @@ HCP Terraform の設定やワークスペース情報を取得する CLI ツー�
 ```
 hcpt
 ├── org list          # Organization 一覧を取得
+├── org show          # Organization 詳細・契約プラン・Entitlements を表示
+├── project list      # Organization 内の Project 一覧を取得
 ├── workspace list    # Organization 内の Workspace 一覧を取得
 ├── workspace show    # 特定の Workspace の詳細情報を表示
-└── run list          # Workspace の Run 履歴を表示
+├── run list          # Workspace の Run 履歴を表示
+├── run show          # Run の詳細情報を表示
+├── variable list     # Workspace の変数一覧を表示
+├── variable set      # 変数の作成/更新 (upsert)
+├── variable delete   # 変数の削除
+├── config set        # 設定値の保存
+├── config get        # 設定値の取得
+└── config list       # 全設定値の一覧
 ```
 
 ## 出力形式
