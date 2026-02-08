@@ -77,7 +77,7 @@ func TestWorkspaceShow_Table_Output(t *testing.T) {
 
 	err := runWorkspaceShow(mock, "test-org", "my-workspace")
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = oldStdout
 
 	if err != nil {
@@ -85,7 +85,7 @@ func TestWorkspaceShow_Table_Output(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
 	for _, want := range []string{"Name:", "my-workspace", "ID:", "ws-abc123", "Description:", "A test workspace", "42", "infra/"} {
@@ -117,7 +117,7 @@ func TestWorkspaceShow_JSON(t *testing.T) {
 
 	err := runWorkspaceShow(mock, "test-org", "my-workspace")
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = oldStdout
 
 	if err != nil {
@@ -125,7 +125,7 @@ func TestWorkspaceShow_JSON(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
 	for _, want := range []string{`"name": "my-workspace"`, `"id": "ws-abc123"`, `"resource_count": 42`} {

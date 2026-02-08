@@ -15,33 +15,33 @@ func Print(w io.Writer, headers []string, rows [][]string) {
 	// Print headers
 	for i, h := range headers {
 		if i > 0 {
-			fmt.Fprint(tw, "\t")
+			_, _ = fmt.Fprint(tw, "\t")
 		}
-		fmt.Fprint(tw, h)
+		_, _ = fmt.Fprint(tw, h)
 	}
-	fmt.Fprintln(tw)
+	_, _ = fmt.Fprintln(tw)
 
 	// Print rows
 	for _, row := range rows {
 		for i, col := range row {
 			if i > 0 {
-				fmt.Fprint(tw, "\t")
+				_, _ = fmt.Fprint(tw, "\t")
 			}
-			fmt.Fprint(tw, col)
+			_, _ = fmt.Fprint(tw, col)
 		}
-		fmt.Fprintln(tw)
+		_, _ = fmt.Fprintln(tw)
 	}
 
-	tw.Flush()
+	_ = tw.Flush()
 }
 
 // PrintKeyValue writes key-value pairs in a vertical format.
 func PrintKeyValue(w io.Writer, pairs []KeyValue) {
 	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
 	for _, kv := range pairs {
-		fmt.Fprintf(tw, "%s:\t%s\n", kv.Key, kv.Value)
+		_, _ = fmt.Fprintf(tw, "%s:\t%s\n", kv.Key, kv.Value)
 	}
-	tw.Flush()
+	_ = tw.Flush()
 }
 
 // KeyValue represents a key-value pair for vertical display.

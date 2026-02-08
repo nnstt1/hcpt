@@ -96,7 +96,7 @@ func TestWorkspaceList_Table_Output(t *testing.T) {
 
 	err := runWorkspaceList(mock, "test-org", "")
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = oldStdout
 
 	if err != nil {
@@ -104,7 +104,7 @@ func TestWorkspaceList_Table_Output(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
 	for _, want := range []string{"NAME", "ws-1", "ws-abc123", "remote", "1.5.0", "true", "false", "2024-03-15 12:00:00"} {
@@ -136,7 +136,7 @@ func TestWorkspaceList_JSON(t *testing.T) {
 
 	err := runWorkspaceList(mock, "test-org", "")
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = oldStdout
 
 	if err != nil {
@@ -144,7 +144,7 @@ func TestWorkspaceList_JSON(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
 	for _, want := range []string{`"name": "ws-1"`, `"id": "ws-abc123"`, `"execution_mode": "remote"`} {

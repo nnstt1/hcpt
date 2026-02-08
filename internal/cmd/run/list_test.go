@@ -104,7 +104,7 @@ func TestRunList_Table_Output(t *testing.T) {
 
 	err := runRunList(mock, "test-org", "my-ws")
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = oldStdout
 
 	if err != nil {
@@ -112,7 +112,7 @@ func TestRunList_Table_Output(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
 	for _, want := range []string{"ID", "STATUS", "run-123", "applied", "Apply complete", "true", "2024-03-15 12:00:00"} {
@@ -146,7 +146,7 @@ func TestRunList_JSON(t *testing.T) {
 
 	err := runRunList(mock, "test-org", "my-ws")
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = oldStdout
 
 	if err != nil {
@@ -154,7 +154,7 @@ func TestRunList_JSON(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
 	for _, want := range []string{`"id": "run-123"`, `"status": "applied"`, `"has_changes": true`} {

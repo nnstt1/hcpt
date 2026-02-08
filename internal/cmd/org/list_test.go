@@ -110,7 +110,7 @@ func TestOrgList_Table_Output(t *testing.T) {
 
 	err := runOrgList(mock)
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = oldStdout
 
 	if err != nil {
@@ -118,7 +118,7 @@ func TestOrgList_Table_Output(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
 	if !strings.Contains(got, "NAME") {
@@ -155,7 +155,7 @@ func TestOrgList_JSON_Output(t *testing.T) {
 
 	err := runOrgList(mock)
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = oldStdout
 
 	if err != nil {
@@ -163,7 +163,7 @@ func TestOrgList_JSON_Output(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
 	if !strings.Contains(got, `"name": "my-org"`) {
