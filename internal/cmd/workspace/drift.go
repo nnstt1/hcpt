@@ -79,12 +79,9 @@ func runWorkspaceDrift(svc wsDriftService, org, name string) error {
 		return fmt.Errorf("failed to read workspace %q: %w", name, err)
 	}
 
-	var result *client.AssessmentResult
-	if ws.AssessmentsEnabled {
-		result, err = svc.ReadCurrentAssessment(ctx, ws.ID)
-		if err != nil {
-			return fmt.Errorf("failed to read assessment for workspace %q: %w", name, err)
-		}
+	result, err := svc.ReadCurrentAssessment(ctx, ws.ID)
+	if err != nil {
+		return fmt.Errorf("failed to read assessment for workspace %q: %w", name, err)
 	}
 
 	if viper.GetBool("json") {
@@ -124,13 +121,9 @@ func runWorkspaceDriftAll(svc wsDriftService, org string) error {
 	results := make([]wsResult, 0, len(allWorkspaces))
 
 	for _, ws := range allWorkspaces {
-		var result *client.AssessmentResult
-		if ws.AssessmentsEnabled {
-			var err error
-			result, err = svc.ReadCurrentAssessment(ctx, ws.ID)
-			if err != nil {
-				return fmt.Errorf("failed to read assessment for workspace %q: %w", ws.Name, err)
-			}
+		result, err := svc.ReadCurrentAssessment(ctx, ws.ID)
+		if err != nil {
+			return fmt.Errorf("failed to read assessment for workspace %q: %w", ws.Name, err)
 		}
 		results = append(results, wsResult{ws: ws, result: result})
 	}

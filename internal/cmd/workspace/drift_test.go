@@ -176,11 +176,12 @@ func TestWorkspaceDrift_All_Table(t *testing.T) {
 	}
 }
 
-func TestWorkspaceDrift_AssessmentsDisabled(t *testing.T) {
+func TestWorkspaceDrift_AssessmentsDisabled_NoResult(t *testing.T) {
 	viper.Reset()
 	viper.Set("json", false)
 	viper.Set("org", "test-org")
 
+	// Assessment API returns nil (404) — no assessment available
 	mock := &mockWSDriftService{
 		mockWSService: mockWSService{
 			workspace: &tfe.Workspace{
@@ -211,9 +212,60 @@ func TestWorkspaceDrift_AssessmentsDisabled(t *testing.T) {
 	if !strings.Contains(got, "false") {
 		t.Errorf("expected 'false' for assessments in output, got:\n%s", got)
 	}
-	// Should show "-" for drift fields when assessments are disabled
+	// Should show "-" for drift fields when no assessment result exists
 	if !strings.Contains(got, "-") {
-		t.Errorf("expected '-' for disabled assessment fields, got:\n%s", got)
+		t.Errorf("expected '-' for no assessment result, got:\n%s", got)
+	}
+}
+
+func TestWorkspaceDrift_OrgEnforced_WorkspaceDisabled(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+	viper.Set("org", "test-org")
+
+	// AssessmentsEnabled is false but org enforces assessments,
+	// so the API returns a valid result
+	mock := &mockWSDriftService{
+		mockWSService: mockWSService{
+			workspace: &tfe.Workspace{
+				Name:               "my-workspace",
+				ID:                 "ws-abc123",
+				AssessmentsEnabled: false,
+			},
+		},
+		assessments: map[string]*client.AssessmentResult{
+			"ws-abc123": {
+				Drifted:            true,
+				Succeeded:          true,
+				ResourcesDrifted:   5,
+				ResourcesUndrifted: 20,
+				CreatedAt:          "2025-01-20T10:30:00.000Z",
+			},
+		},
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runWorkspaceDrift(mock, "test-org", "my-workspace")
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
+
+	// Even though AssessmentsEnabled is false, drift data should be shown
+	for _, want := range []string{"Drifted:", "true", "Resources Drifted:", "5", "Resources Undrifted:", "20"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("expected %q in output, got:\n%s", want, got)
+		}
 	}
 }
 
