@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/nnstt1/hcpt/internal/cmd/config"
+	"github.com/nnstt1/hcpt/internal/cmd/drift"
 	"github.com/nnstt1/hcpt/internal/cmd/org"
 	"github.com/nnstt1/hcpt/internal/cmd/project"
 	"github.com/nnstt1/hcpt/internal/cmd/run"
@@ -38,6 +39,7 @@ func init() {
 	_ = viper.BindPFlag("json", rootCmd.PersistentFlags().Lookup("json"))
 
 	rootCmd.AddCommand(config.NewCmdConfig())
+	rootCmd.AddCommand(drift.NewCmdDrift())
 	rootCmd.AddCommand(org.NewCmdOrg())
 	rootCmd.AddCommand(project.NewCmdProject())
 	rootCmd.AddCommand(workspace.NewCmdWorkspace())

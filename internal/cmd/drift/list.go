@@ -1,0 +1,148 @@
+package drift
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"strconv"
+
+	tfe "github.com/hashicorp/go-tfe"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+
+	"github.com/nnstt1/hcpt/internal/client"
+	"github.com/nnstt1/hcpt/internal/output"
+)
+
+type driftService interface {
+	client.WorkspaceService
+	client.AssessmentService
+}
+
+type driftClientFactory func() (driftService, error)
+
+func defaultDriftClientFactory() (driftService, error) {
+	return client.NewClientWrapper()
+}
+
+func newCmdDriftList() *cobra.Command {
+	return newCmdDriftListWith(defaultDriftClientFactory)
+}
+
+func newCmdDriftListWith(clientFn driftClientFactory) *cobra.Command {
+	var all bool
+
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List workspaces with drift status",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			org := viper.GetString("org")
+			if org == "" {
+				return fmt.Errorf("organization is required: use --org flag, TFE_ORG env, or set 'org' in config file")
+			}
+
+			svc, err := clientFn()
+			if err != nil {
+				return err
+			}
+			return runDriftList(svc, org, all)
+		},
+	}
+
+	cmd.Flags().BoolVar(&all, "all", false, "show all workspaces (default: drifted only)")
+
+	return cmd
+}
+
+type driftJSON struct {
+	Workspace          string `json:"workspace"`
+	Drifted            *bool  `json:"drifted"`
+	ResourcesDrifted   *int   `json:"resources_drifted"`
+	ResourcesUndrifted *int   `json:"resources_undrifted"`
+	LastAssessment     string `json:"last_assessment"`
+}
+
+func runDriftList(svc driftService, org string, all bool) error {
+	ctx := context.Background()
+	opts := &tfe.WorkspaceListOptions{
+		ListOptions: tfe.ListOptions{
+			PageSize: 100,
+		},
+	}
+
+	type wsResult struct {
+		ws     *tfe.Workspace
+		result *client.AssessmentResult
+	}
+	var results []wsResult
+
+	for {
+		wsList, err := svc.ListWorkspaces(ctx, org, opts)
+		if err != nil {
+			return fmt.Errorf("failed to list workspaces: %w", err)
+		}
+
+		for _, ws := range wsList.Items {
+			result, err := svc.ReadCurrentAssessment(ctx, ws.ID)
+			if err != nil {
+				return fmt.Errorf("failed to read assessment for workspace %q: %w", ws.Name, err)
+			}
+
+			if all || (result != nil && result.Drifted) {
+				results = append(results, wsResult{ws: ws, result: result})
+			}
+		}
+
+		if wsList.Pagination == nil || wsList.CurrentPage >= wsList.TotalPages {
+			break
+		}
+		opts.PageNumber = wsList.NextPage
+	}
+
+	if viper.GetBool("json") {
+		items := make([]driftJSON, 0, len(results))
+		for _, r := range results {
+			items = append(items, toDriftJSON(r.ws, r.result))
+		}
+		return output.PrintJSON(os.Stdout, items)
+	}
+
+	headers := []string{"WORKSPACE", "DRIFTED", "RESOURCES DRIFTED", "LAST ASSESSMENT"}
+	rows := make([][]string, 0, len(results))
+	for _, r := range results {
+		rows = append(rows, buildDriftRow(r.ws, r.result))
+	}
+
+	output.Print(os.Stdout, headers, rows)
+	return nil
+}
+
+func buildDriftRow(ws *tfe.Workspace, result *client.AssessmentResult) []string {
+	if result != nil {
+		return []string{
+			ws.Name,
+			strconv.FormatBool(result.Drifted),
+			strconv.Itoa(result.ResourcesDrifted),
+			result.CreatedAt,
+		}
+	}
+	return []string{
+		ws.Name,
+		"not ready",
+		"-",
+		"-",
+	}
+}
+
+func toDriftJSON(ws *tfe.Workspace, result *client.AssessmentResult) driftJSON {
+	d := driftJSON{
+		Workspace: ws.Name,
+	}
+	if result != nil {
+		d.Drifted = &result.Drifted
+		d.ResourcesDrifted = &result.ResourcesDrifted
+		d.ResourcesUndrifted = &result.ResourcesUndrifted
+		d.LastAssessment = result.CreatedAt
+	}
+	return d
+}

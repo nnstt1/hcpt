@@ -24,9 +24,10 @@ hcpt
 ├── org list          # Organization 一覧を取得
 ├── org show          # Organization 詳細・契約プラン・Entitlements を表示
 ├── project list      # Organization 内の Project 一覧を取得
+├── drift list        # ドリフトしているワークスペース一覧（--all で全件）
+├── drift show        # 特定ワークスペースのドリフト検出詳細
 ├── workspace list    # Organization 内の Workspace 一覧を取得
 ├── workspace show    # 特定の Workspace の詳細情報を表示
-├── workspace drift   # ドリフト検出状態を表示（単一 or --all）
 ├── run list          # Workspace の Run 履歴を表示
 ├── run show          # Run の詳細情報を表示
 ├── variable list     # Workspace の変数一覧を表示
@@ -82,6 +83,7 @@ go mod tidy
 ├── internal/
 │   ├── cmd/                 # Cobra コマンド定義
 │   │   ├── root.go          # ルートコマンド（Viper 初期化含む）
+│   │   ├── drift/           # drift サブコマンド
 │   │   ├── org/             # org サブコマンド
 │   │   ├── workspace/       # workspace サブコマンド
 │   │   └── run/             # run サブコマンド
