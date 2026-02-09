@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"sync"
 
 	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/nnstt1/hcpt/internal/client"
 	"github.com/nnstt1/hcpt/internal/output"
@@ -62,6 +64,8 @@ type driftJSON struct {
 	LastAssessment     string `json:"last_assessment"`
 }
 
+const maxConcurrency = 10
+
 func runDriftList(svc driftService, org string, all bool) error {
 	ctx := context.Background()
 	opts := &tfe.WorkspaceListOptions{
@@ -70,33 +74,56 @@ func runDriftList(svc driftService, org string, all bool) error {
 		},
 	}
 
-	type wsResult struct {
-		ws     *tfe.Workspace
-		result *client.AssessmentResult
-	}
-	var results []wsResult
-
+	// Collect all workspaces first
+	var allWorkspaces []*tfe.Workspace
 	for {
 		wsList, err := svc.ListWorkspaces(ctx, org, opts)
 		if err != nil {
 			return fmt.Errorf("failed to list workspaces: %w", err)
 		}
-
-		for _, ws := range wsList.Items {
-			result, err := svc.ReadCurrentAssessment(ctx, ws.ID)
-			if err != nil {
-				return fmt.Errorf("failed to read assessment for workspace %q: %w", ws.Name, err)
-			}
-
-			if all || (result != nil && result.Drifted) {
-				results = append(results, wsResult{ws: ws, result: result})
-			}
-		}
-
+		allWorkspaces = append(allWorkspaces, wsList.Items...)
 		if wsList.Pagination == nil || wsList.CurrentPage >= wsList.TotalPages {
 			break
 		}
 		opts.PageNumber = wsList.NextPage
+	}
+
+	// Fetch assessment results concurrently
+	type wsResult struct {
+		ws     *tfe.Workspace
+		result *client.AssessmentResult
+	}
+	indexed := make([]wsResult, len(allWorkspaces))
+
+	g, ctx := errgroup.WithContext(ctx)
+	g.SetLimit(maxConcurrency)
+
+	var mu sync.Mutex
+
+	for i, ws := range allWorkspaces {
+		indexed[i].ws = ws
+		g.Go(func() error {
+			result, err := svc.ReadCurrentAssessment(ctx, ws.ID)
+			if err != nil {
+				return fmt.Errorf("failed to read assessment for workspace %q: %w", ws.Name, err)
+			}
+			mu.Lock()
+			indexed[i].result = result
+			mu.Unlock()
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return err
+	}
+
+	// Filter results
+	var results []wsResult
+	for _, r := range indexed {
+		if all || (r.result != nil && r.result.Drifted) {
+			results = append(results, r)
+		}
 	}
 
 	if viper.GetBool("json") {
