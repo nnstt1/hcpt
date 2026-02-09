@@ -15,10 +15,12 @@ import (
 )
 
 type mockDriftShowService struct {
-	workspace   *tfe.Workspace
-	readErr     error
-	assessments map[string]*client.AssessmentResult
-	assessErr   error
+	workspace       *tfe.Workspace
+	readErr         error
+	assessments     map[string]*client.AssessmentResult
+	assessErr       error
+	driftDetails    map[string][]client.DriftedResource
+	driftDetailsErr error
 }
 
 func (m *mockDriftShowService) ListWorkspaces(_ context.Context, _ string, _ *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error) {
@@ -42,6 +44,16 @@ func (m *mockDriftShowService) ReadCurrentAssessment(_ context.Context, workspac
 	return nil, nil
 }
 
+func (m *mockDriftShowService) ReadAssessmentDriftDetails(_ context.Context, assessmentID string) ([]client.DriftedResource, error) {
+	if m.driftDetailsErr != nil {
+		return nil, m.driftDetailsErr
+	}
+	if m.driftDetails != nil {
+		return m.driftDetails[assessmentID], nil
+	}
+	return nil, nil
+}
+
 func TestDriftShow_Table(t *testing.T) {
 	viper.Reset()
 	viper.Set("json", false)
@@ -54,11 +66,19 @@ func TestDriftShow_Table(t *testing.T) {
 		},
 		assessments: map[string]*client.AssessmentResult{
 			"ws-abc123": {
+				ID:                 "asmnt-001",
 				Drifted:            true,
 				Succeeded:          true,
 				ResourcesDrifted:   3,
 				ResourcesUndrifted: 12,
 				CreatedAt:          "2025-01-20T10:30:00.000Z",
+			},
+		},
+		driftDetails: map[string][]client.DriftedResource{
+			"asmnt-001": {
+				{Address: "aws_security_group.web", Type: "aws_security_group", Name: "web", Action: "update"},
+				{Address: "aws_s3_bucket.logs", Type: "aws_s3_bucket", Name: "logs", Action: "update"},
+				{Address: "aws_iam_role.lambda", Type: "aws_iam_role", Name: "lambda", Action: "delete"},
 			},
 		},
 	}
@@ -80,7 +100,15 @@ func TestDriftShow_Table(t *testing.T) {
 	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
-	for _, want := range []string{"Workspace:", "my-workspace", "Drifted:", "true", "Resources Drifted:", "3", "Resources Undrifted:", "12", "Last Assessment:", "2025-01-20T10:30:00.000Z"} {
+	for _, want := range []string{
+		"Workspace:", "my-workspace",
+		"Drifted:", "true",
+		"Resources Drifted:", "3",
+		"RESOURCE", "TYPE", "ACTION",
+		"aws_security_group.web", "aws_security_group", "update",
+		"aws_s3_bucket.logs", "aws_s3_bucket",
+		"aws_iam_role.lambda", "aws_iam_role", "delete",
+	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("expected %q in output, got:\n%s", want, got)
 		}
@@ -99,10 +127,70 @@ func TestDriftShow_JSON(t *testing.T) {
 		},
 		assessments: map[string]*client.AssessmentResult{
 			"ws-abc123": {
+				ID:                 "asmnt-001",
 				Drifted:            true,
 				Succeeded:          true,
 				ResourcesDrifted:   3,
 				ResourcesUndrifted: 12,
+				CreatedAt:          "2025-01-20T10:30:00.000Z",
+			},
+		},
+		driftDetails: map[string][]client.DriftedResource{
+			"asmnt-001": {
+				{Address: "aws_security_group.web", Type: "aws_security_group", Name: "web", Action: "update"},
+			},
+		},
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runDriftShow(mock, "test-org", "my-workspace")
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
+
+	for _, want := range []string{
+		`"workspace": "my-workspace"`,
+		`"drifted": true`,
+		`"resources_drifted": 3`,
+		`"drifted_resources"`,
+		`"address": "aws_security_group.web"`,
+		`"type": "aws_security_group"`,
+		`"action": "update"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("expected %q in JSON output, got:\n%s", want, got)
+		}
+	}
+}
+
+func TestDriftShow_NoDrift_NoResourceTable(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+	viper.Set("org", "test-org")
+
+	mock := &mockDriftShowService{
+		workspace: &tfe.Workspace{
+			Name: "my-workspace",
+			ID:   "ws-abc123",
+		},
+		assessments: map[string]*client.AssessmentResult{
+			"ws-abc123": {
+				ID:                 "asmnt-001",
+				Drifted:            false,
+				Succeeded:          true,
+				ResourcesDrifted:   0,
+				ResourcesUndrifted: 15,
 				CreatedAt:          "2025-01-20T10:30:00.000Z",
 			},
 		},
@@ -125,10 +213,11 @@ func TestDriftShow_JSON(t *testing.T) {
 	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
-	for _, want := range []string{`"workspace": "my-workspace"`, `"drifted": true`, `"resources_drifted": 3`, `"resources_undrifted": 12`} {
-		if !strings.Contains(got, want) {
-			t.Errorf("expected %q in JSON output, got:\n%s", want, got)
-		}
+	if strings.Contains(got, "RESOURCE") {
+		t.Errorf("resource table should not appear when not drifted, got:\n%s", got)
+	}
+	if !strings.Contains(got, "false") {
+		t.Errorf("expected 'false' for drifted, got:\n%s", got)
 	}
 }
 
@@ -163,6 +252,68 @@ func TestDriftShow_NotReady(t *testing.T) {
 
 	if !strings.Contains(got, "not ready") {
 		t.Errorf("expected 'not ready' in output, got:\n%s", got)
+	}
+}
+
+func TestDriftShow_DriftDetailsError_NonFatal(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+	viper.Set("org", "test-org")
+
+	mock := &mockDriftShowService{
+		workspace: &tfe.Workspace{
+			Name: "my-workspace",
+			ID:   "ws-abc123",
+		},
+		assessments: map[string]*client.AssessmentResult{
+			"ws-abc123": {
+				ID:                 "asmnt-001",
+				Drifted:            true,
+				Succeeded:          true,
+				ResourcesDrifted:   2,
+				ResourcesUndrifted: 10,
+				CreatedAt:          "2025-01-20T10:30:00.000Z",
+			},
+		},
+		driftDetailsErr: fmt.Errorf("json-output endpoint returned HTTP 500"),
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	// Capture stderr for warning
+	oldStderr := os.Stderr
+	rErr, wErr, _ := os.Pipe()
+	os.Stderr = wErr
+
+	err := runDriftShow(mock, "test-org", "my-workspace")
+
+	_ = w.Close()
+	_ = wErr.Close()
+	os.Stdout = oldStdout
+	os.Stderr = oldStderr
+
+	if err != nil {
+		t.Fatalf("expected no error (non-fatal), got: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
+
+	// Summary should still be shown
+	if !strings.Contains(got, "Drifted:") {
+		t.Errorf("expected summary output, got:\n%s", got)
+	}
+
+	// Warning should be on stderr
+	var errBuf bytes.Buffer
+	_, _ = errBuf.ReadFrom(rErr)
+	errGot := errBuf.String()
+
+	if !strings.Contains(errGot, "Warning") {
+		t.Errorf("expected warning on stderr, got:\n%s", errGot)
 	}
 }
 

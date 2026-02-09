@@ -49,6 +49,7 @@ type ProjectService interface {
 
 // AssessmentResult holds the current assessment (drift detection) result for a workspace.
 type AssessmentResult struct {
+	ID                 string
 	Drifted            bool
 	Succeeded          bool
 	ResourcesDrifted   int
@@ -56,9 +57,18 @@ type AssessmentResult struct {
 	CreatedAt          string
 }
 
+// DriftedResource holds details about a single drifted resource.
+type DriftedResource struct {
+	Address string
+	Type    string
+	Name    string
+	Action  string
+}
+
 // AssessmentService provides operations to read workspace assessment results.
 type AssessmentService interface {
 	ReadCurrentAssessment(ctx context.Context, workspaceID string) (*AssessmentResult, error)
+	ReadAssessmentDriftDetails(ctx context.Context, assessmentID string) ([]DriftedResource, error)
 }
 
 // ExplorerWorkspace holds a workspace entry returned by the Explorer API.
@@ -349,6 +359,7 @@ func retryAfterDuration(header string, attempt int) time.Duration {
 func parseAssessmentResponse(body []byte) (*AssessmentResult, error) {
 	var response struct {
 		Data struct {
+			ID         string `json:"id"`
 			Attributes struct {
 				Drifted            bool   `json:"drifted"`
 				Succeeded          bool   `json:"succeeded"`
@@ -364,12 +375,82 @@ func parseAssessmentResponse(body []byte) (*AssessmentResult, error) {
 	}
 
 	return &AssessmentResult{
+		ID:                 response.Data.ID,
 		Drifted:            response.Data.Attributes.Drifted,
 		Succeeded:          response.Data.Attributes.Succeeded,
 		ResourcesDrifted:   response.Data.Attributes.ResourcesDrifted,
 		ResourcesUndrifted: response.Data.Attributes.ResourcesUndrifted,
 		CreatedAt:          response.Data.Attributes.CreatedAt,
 	}, nil
+}
+
+// ReadAssessmentDriftDetails fetches the JSON output for an assessment result
+// and extracts the drifted resource details from the resource_drift field.
+func (c *ClientWrapper) ReadAssessmentDriftDetails(ctx context.Context, assessmentID string) ([]DriftedResource, error) {
+	address := c.address
+	if address == "" {
+		address = "https://app.terraform.io"
+	}
+
+	apiURL := strings.TrimRight(address, "/") + "/api/v2/assessment-results/" + url.PathEscape(assessmentID) + "/json-output"
+
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Content-Type", "application/vnd.api+json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch assessment json-output: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("assessment json-output endpoint returned HTTP %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read assessment json-output: %w", err)
+	}
+
+	return parseAssessmentJSONOutput(body)
+}
+
+// parseAssessmentJSONOutput extracts drifted resources from the Terraform plan JSON output.
+func parseAssessmentJSONOutput(body []byte) ([]DriftedResource, error) {
+	var planOutput struct {
+		ResourceDrift []struct {
+			Address string `json:"address"`
+			Type    string `json:"type"`
+			Name    string `json:"name"`
+			Change  struct {
+				Actions []string `json:"actions"`
+			} `json:"change"`
+		} `json:"resource_drift"`
+	}
+
+	if err := json.Unmarshal(body, &planOutput); err != nil {
+		return nil, fmt.Errorf("failed to parse assessment json-output: %w", err)
+	}
+
+	resources := make([]DriftedResource, 0, len(planOutput.ResourceDrift))
+	for _, r := range planOutput.ResourceDrift {
+		action := "unknown"
+		if len(r.Change.Actions) > 0 {
+			action = strings.Join(r.Change.Actions, ", ")
+		}
+		resources = append(resources, DriftedResource{
+			Address: r.Address,
+			Type:    r.Type,
+			Name:    r.Name,
+			Action:  action,
+		})
+	}
+
+	return resources, nil
 }
 
 // ReadSubscription fetches subscription info from the organizations API.
