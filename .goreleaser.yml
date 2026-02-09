@@ -11,7 +11,7 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -s -w
+      - -s -w -X github.com/nnstt1/hcpt/internal/version.Version={{.Version}}
 
 archives:
   - format: tar.gz

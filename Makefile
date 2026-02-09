@@ -1,7 +1,7 @@
 .PHONY: build test lint clean
 
 build:
-	go build -o hcpt .
+	go build -ldflags "-X github.com/nnstt1/hcpt/internal/version.Version=dev" -o hcpt .
 
 test:
 	go test ./...

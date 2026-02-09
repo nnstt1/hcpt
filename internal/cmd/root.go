@@ -14,14 +14,16 @@ import (
 	"github.com/nnstt1/hcpt/internal/cmd/run"
 	"github.com/nnstt1/hcpt/internal/cmd/variable"
 	"github.com/nnstt1/hcpt/internal/cmd/workspace"
+	"github.com/nnstt1/hcpt/internal/version"
 )
 
 var cfgFile string
 
 var rootCmd = &cobra.Command{
-	Use:   "hcpt",
-	Short: "CLI tool for HCP Terraform",
-	Long:  "A CLI tool to retrieve HCP Terraform configurations and workspace information.",
+	Use:     "hcpt",
+	Short:   "CLI tool for HCP Terraform",
+	Long:    "A CLI tool to retrieve HCP Terraform configurations and workspace information.",
+	Version: version.Version,
 }
 
 func Execute() error {
