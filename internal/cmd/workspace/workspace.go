@@ -14,6 +14,7 @@ func NewCmdWorkspace() *cobra.Command {
 
 	cmd.AddCommand(newCmdWorkspaceList())
 	cmd.AddCommand(newCmdWorkspaceShow())
+	cmd.AddCommand(newCmdWorkspaceDrift())
 
 	return cmd
 }

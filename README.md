@@ -78,6 +78,12 @@ hcpt ws list --org my-org
 
 # Show workspace details
 hcpt workspace show my-workspace --org my-org
+
+# Show drift detection status for a workspace
+hcpt workspace drift my-workspace --org my-org
+
+# Show drift status for all workspaces
+hcpt workspace drift --all --org my-org
 ```
 
 ### Runs
