@@ -16,11 +16,15 @@ import (
 )
 
 type mockOrgService struct {
-	orgs []*tfe.Organization
-	err  error
+	orgs   []*tfe.Organization
+	err    error
+	listFn func(opts *tfe.OrganizationListOptions) (*tfe.OrganizationList, error)
 }
 
-func (m *mockOrgService) ListOrganizations(_ context.Context, _ *tfe.OrganizationListOptions) (*tfe.OrganizationList, error) {
+func (m *mockOrgService) ListOrganizations(_ context.Context, opts *tfe.OrganizationListOptions) (*tfe.OrganizationList, error) {
+	if m.listFn != nil {
+		return m.listFn(opts)
+	}
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -179,6 +183,61 @@ func TestOrgList_JSON_Output(t *testing.T) {
 	}
 	if !strings.Contains(got, `"email": "admin@example.com"`) {
 		t.Errorf("expected JSON email field, got:\n%s", got)
+	}
+}
+
+func TestOrgList_Pagination(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+
+	mock := &mockOrgService{
+		listFn: func(opts *tfe.OrganizationListOptions) (*tfe.OrganizationList, error) {
+			page := opts.PageNumber
+			if page == 0 {
+				page = 1
+			}
+			switch page {
+			case 1:
+				return &tfe.OrganizationList{
+					Items: []*tfe.Organization{
+						{Name: "org-1", Email: "a@example.com", CreatedAt: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)},
+					},
+					Pagination: &tfe.Pagination{NextPage: 2, TotalPages: 2},
+				}, nil
+			case 2:
+				return &tfe.OrganizationList{
+					Items: []*tfe.Organization{
+						{Name: "org-2", Email: "b@example.com", CreatedAt: time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC)},
+					},
+					Pagination: &tfe.Pagination{NextPage: 0, TotalPages: 2},
+				}, nil
+			default:
+				return nil, fmt.Errorf("unexpected page %d", page)
+			}
+		},
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runOrgList(mock)
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
+
+	for _, want := range []string{"org-1", "org-2"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("expected %q in output, got:\n%s", want, got)
+		}
 	}
 }
 

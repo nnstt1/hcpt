@@ -73,14 +73,26 @@ func runVariableList(svc variableListService, org, workspaceName string) error {
 		return fmt.Errorf("failed to read workspace %q: %w", workspaceName, err)
 	}
 
-	varList, err := svc.ListVariables(ctx, ws.ID, &tfe.VariableListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list variables: %w", err)
+	opts := &tfe.VariableListOptions{
+		ListOptions: tfe.ListOptions{PageSize: 100},
+	}
+
+	var allItems []*tfe.Variable
+	for {
+		varList, err := svc.ListVariables(ctx, ws.ID, opts)
+		if err != nil {
+			return fmt.Errorf("failed to list variables: %w", err)
+		}
+		allItems = append(allItems, varList.Items...)
+		if varList.Pagination == nil || varList.NextPage == 0 {
+			break
+		}
+		opts.PageNumber = varList.NextPage
 	}
 
 	if viper.GetBool("json") {
-		items := make([]variableJSON, 0, len(varList.Items))
-		for _, v := range varList.Items {
+		items := make([]variableJSON, 0, len(allItems))
+		for _, v := range allItems {
 			value := v.Value
 			if v.Sensitive {
 				value = "(sensitive)"
@@ -97,8 +109,8 @@ func runVariableList(svc variableListService, org, workspaceName string) error {
 	}
 
 	headers := []string{"KEY", "VALUE", "CATEGORY", "SENSITIVE", "HCL"}
-	rows := make([][]string, 0, len(varList.Items))
-	for _, v := range varList.Items {
+	rows := make([][]string, 0, len(allItems))
+	for _, v := range allItems {
 		value := v.Value
 		if v.Sensitive {
 			value = "(sensitive)"

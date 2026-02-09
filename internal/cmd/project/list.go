@@ -51,14 +51,26 @@ func newCmdProjectListWith(clientFn projectListClientFactory) *cobra.Command {
 
 func runProjectList(svc client.ProjectService, org string) error {
 	ctx := context.Background()
-	projList, err := svc.ListProjects(ctx, org, &tfe.ProjectListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list projects: %w", err)
+	opts := &tfe.ProjectListOptions{
+		ListOptions: tfe.ListOptions{PageSize: 100},
+	}
+
+	var allItems []*tfe.Project
+	for {
+		projList, err := svc.ListProjects(ctx, org, opts)
+		if err != nil {
+			return fmt.Errorf("failed to list projects: %w", err)
+		}
+		allItems = append(allItems, projList.Items...)
+		if projList.Pagination == nil || projList.NextPage == 0 {
+			break
+		}
+		opts.PageNumber = projList.NextPage
 	}
 
 	if viper.GetBool("json") {
-		items := make([]projectJSON, 0, len(projList.Items))
-		for _, p := range projList.Items {
+		items := make([]projectJSON, 0, len(allItems))
+		for _, p := range allItems {
 			items = append(items, projectJSON{
 				Name:        p.Name,
 				ID:          p.ID,
@@ -69,8 +81,8 @@ func runProjectList(svc client.ProjectService, org string) error {
 	}
 
 	headers := []string{"NAME", "ID", "DESCRIPTION"}
-	rows := make([][]string, 0, len(projList.Items))
-	for _, p := range projList.Items {
+	rows := make([][]string, 0, len(allItems))
+	for _, p := range allItems {
 		rows = append(rows, []string{
 			p.Name,
 			p.ID,
