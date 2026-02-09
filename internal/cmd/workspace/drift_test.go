@@ -71,7 +71,7 @@ func TestWorkspaceDrift_Single_Table(t *testing.T) {
 	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
-	for _, want := range []string{"Workspace:", "my-workspace", "Assessments:", "true", "Drifted:", "true", "Resources Drifted:", "3", "Resources Undrifted:", "12", "Last Assessment:", "2025-01-20T10:30:00.000Z"} {
+	for _, want := range []string{"Workspace:", "my-workspace", "Drifted:", "true", "Resources Drifted:", "3", "Resources Undrifted:", "12", "Last Assessment:", "2025-01-20T10:30:00.000Z"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("expected %q in output, got:\n%s", want, got)
 		}
@@ -119,7 +119,7 @@ func TestWorkspaceDrift_Single_JSON(t *testing.T) {
 	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
-	for _, want := range []string{`"workspace": "my-workspace"`, `"assessments": true`, `"drifted": true`, `"resources_drifted": 3`, `"resources_undrifted": 12`} {
+	for _, want := range []string{`"workspace": "my-workspace"`, `"drifted": true`, `"resources_drifted": 3`, `"resources_undrifted": 12`} {
 		if !strings.Contains(got, want) {
 			t.Errorf("expected %q in JSON output, got:\n%s", want, got)
 		}
@@ -162,16 +162,19 @@ func TestWorkspaceDrift_All_Table(t *testing.T) {
 	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
-	for _, want := range []string{"WORKSPACE", "ASSESSMENTS", "DRIFTED", "prod-vpc", "staging", "dev", "true", "false"} {
+	for _, want := range []string{"WORKSPACE", "DRIFTED", "prod-vpc", "staging", "dev", "true", "false"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("expected %q in output, got:\n%s", want, got)
 		}
 	}
-	// dev workspace should show "-" for drifted since assessments are disabled
+	if strings.Contains(got, "ASSESSMENTS") {
+		t.Errorf("ASSESSMENTS column should not be present, got:\n%s", got)
+	}
+	// dev workspace should show "not ready" since no assessment result exists
 	lines := strings.Split(got, "\n")
 	for _, line := range lines {
-		if strings.Contains(line, "dev") && !strings.Contains(line, "-") {
-			t.Errorf("expected '-' for dev workspace with disabled assessments, got:\n%s", line)
+		if strings.Contains(line, "dev") && !strings.Contains(line, "not ready") {
+			t.Errorf("expected 'not ready' for dev workspace, got:\n%s", line)
 		}
 	}
 }
@@ -209,10 +212,10 @@ func TestWorkspaceDrift_AssessmentsDisabled_NoResult(t *testing.T) {
 	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
-	if !strings.Contains(got, "false") {
-		t.Errorf("expected 'false' for assessments in output, got:\n%s", got)
+	if !strings.Contains(got, "not ready") {
+		t.Errorf("expected 'not ready' for drifted field in output, got:\n%s", got)
 	}
-	// Should show "-" for drift fields when no assessment result exists
+	// Should show "-" for other drift fields when no assessment result exists
 	if !strings.Contains(got, "-") {
 		t.Errorf("expected '-' for no assessment result, got:\n%s", got)
 	}

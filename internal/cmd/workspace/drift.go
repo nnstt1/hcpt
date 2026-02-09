@@ -65,7 +65,6 @@ func newCmdWorkspaceDriftWith(clientFn wsDriftClientFactory) *cobra.Command {
 
 type driftJSON struct {
 	Workspace          string `json:"workspace"`
-	Assessments        bool   `json:"assessments"`
 	Drifted            *bool  `json:"drifted"`
 	ResourcesDrifted   *int   `json:"resources_drifted"`
 	ResourcesUndrifted *int   `json:"resources_undrifted"`
@@ -136,7 +135,7 @@ func runWorkspaceDriftAll(svc wsDriftService, org string) error {
 		return output.PrintJSON(os.Stdout, items)
 	}
 
-	headers := []string{"WORKSPACE", "ASSESSMENTS", "DRIFTED", "RESOURCES DRIFTED", "LAST ASSESSMENT"}
+	headers := []string{"WORKSPACE", "DRIFTED", "RESOURCES DRIFTED", "LAST ASSESSMENT"}
 	rows := make([][]string, 0, len(results))
 	for _, r := range results {
 		rows = append(rows, buildDriftRow(r.ws, r.result))
@@ -149,7 +148,6 @@ func runWorkspaceDriftAll(svc wsDriftService, org string) error {
 func buildDriftKeyValues(ws *tfe.Workspace, result *client.AssessmentResult) []output.KeyValue {
 	pairs := []output.KeyValue{
 		{Key: "Workspace", Value: ws.Name},
-		{Key: "Assessments", Value: strconv.FormatBool(ws.AssessmentsEnabled)},
 	}
 
 	if result != nil {
@@ -161,7 +159,7 @@ func buildDriftKeyValues(ws *tfe.Workspace, result *client.AssessmentResult) []o
 		)
 	} else {
 		pairs = append(pairs,
-			output.KeyValue{Key: "Drifted", Value: "-"},
+			output.KeyValue{Key: "Drifted", Value: "not ready"},
 			output.KeyValue{Key: "Resources Drifted", Value: "-"},
 			output.KeyValue{Key: "Resources Undrifted", Value: "-"},
 			output.KeyValue{Key: "Last Assessment", Value: "-"},
@@ -175,7 +173,6 @@ func buildDriftRow(ws *tfe.Workspace, result *client.AssessmentResult) []string 
 	if result != nil {
 		return []string{
 			ws.Name,
-			strconv.FormatBool(ws.AssessmentsEnabled),
 			strconv.FormatBool(result.Drifted),
 			strconv.Itoa(result.ResourcesDrifted),
 			result.CreatedAt,
@@ -183,8 +180,7 @@ func buildDriftRow(ws *tfe.Workspace, result *client.AssessmentResult) []string 
 	}
 	return []string{
 		ws.Name,
-		strconv.FormatBool(ws.AssessmentsEnabled),
-		"-",
+		"not ready",
 		"-",
 		"-",
 	}
@@ -192,8 +188,7 @@ func buildDriftRow(ws *tfe.Workspace, result *client.AssessmentResult) []string 
 
 func toDriftJSON(ws *tfe.Workspace, result *client.AssessmentResult) driftJSON {
 	d := driftJSON{
-		Workspace:   ws.Name,
-		Assessments: ws.AssessmentsEnabled,
+		Workspace: ws.Name,
 	}
 	if result != nil {
 		d.Drifted = &result.Drifted
