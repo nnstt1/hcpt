@@ -50,12 +50,20 @@ func newCmdDriftShowWith(clientFn driftShowClientFactory) *cobra.Command {
 	return cmd
 }
 
+type driftResourceJSON struct {
+	Address string `json:"address"`
+	Type    string `json:"type"`
+	Name    string `json:"name"`
+	Action  string `json:"action"`
+}
+
 type driftShowJSON struct {
-	Workspace          string `json:"workspace"`
-	Drifted            *bool  `json:"drifted"`
-	ResourcesDrifted   *int   `json:"resources_drifted"`
-	ResourcesUndrifted *int   `json:"resources_undrifted"`
-	LastAssessment     string `json:"last_assessment"`
+	Workspace          string              `json:"workspace"`
+	Drifted            *bool               `json:"drifted"`
+	ResourcesDrifted   *int                `json:"resources_drifted"`
+	ResourcesUndrifted *int                `json:"resources_undrifted"`
+	LastAssessment     string              `json:"last_assessment"`
+	DriftedResources   []driftResourceJSON `json:"drifted_resources,omitempty"`
 }
 
 func runDriftShow(svc driftShowService, org, name string) error {
@@ -70,16 +78,37 @@ func runDriftShow(svc driftShowService, org, name string) error {
 		return fmt.Errorf("failed to read assessment for workspace %q: %w", name, err)
 	}
 
+	// Fetch drifted resource details if assessment shows drift
+	var driftedResources []client.DriftedResource
+	if result != nil && result.Drifted && result.ID != "" {
+		driftedResources, err = svc.ReadAssessmentDriftDetails(ctx, result.ID)
+		if err != nil {
+			// Non-fatal: show summary even if details fail
+			fmt.Fprintf(os.Stderr, "Warning: failed to fetch drift details: %v\n", err)
+		}
+	}
+
 	if viper.GetBool("json") {
-		return output.PrintJSON(os.Stdout, toDriftShowJSON(ws, result))
+		return output.PrintJSON(os.Stdout, toDriftShowJSON(ws, result, driftedResources))
 	}
 
 	pairs := buildDriftShowKeyValues(ws, result)
 	output.PrintKeyValue(os.Stdout, pairs)
+
+	if len(driftedResources) > 0 {
+		fmt.Fprintln(os.Stdout) //nolint:errcheck
+		headers := []string{"RESOURCE", "TYPE", "ACTION"}
+		rows := make([][]string, 0, len(driftedResources))
+		for _, r := range driftedResources {
+			rows = append(rows, []string{r.Address, r.Type, r.Action})
+		}
+		output.Print(os.Stdout, headers, rows)
+	}
+
 	return nil
 }
 
-func toDriftShowJSON(ws *tfe.Workspace, result *client.AssessmentResult) driftShowJSON {
+func toDriftShowJSON(ws *tfe.Workspace, result *client.AssessmentResult, resources []client.DriftedResource) driftShowJSON {
 	d := driftShowJSON{
 		Workspace: ws.Name,
 	}
@@ -88,6 +117,14 @@ func toDriftShowJSON(ws *tfe.Workspace, result *client.AssessmentResult) driftSh
 		d.ResourcesDrifted = &result.ResourcesDrifted
 		d.ResourcesUndrifted = &result.ResourcesUndrifted
 		d.LastAssessment = result.CreatedAt
+	}
+	for _, r := range resources {
+		d.DriftedResources = append(d.DriftedResources, driftResourceJSON{
+			Address: r.Address,
+			Type:    r.Type,
+			Name:    r.Name,
+			Action:  r.Action,
+		})
 	}
 	return d
 }

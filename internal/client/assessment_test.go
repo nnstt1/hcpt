@@ -220,3 +220,103 @@ func TestParseExplorerWorkspacesResponse_InvalidJSON(t *testing.T) {
 		t.Errorf("expected 'failed to parse' error, got: %v", err)
 	}
 }
+
+func TestParseAssessmentJSONOutput_MultipleResources(t *testing.T) {
+	body := []byte(`{
+		"resource_drift": [
+			{
+				"address": "aws_security_group.web",
+				"type": "aws_security_group",
+				"name": "web",
+				"change": {"actions": ["update"]}
+			},
+			{
+				"address": "aws_s3_bucket.logs",
+				"type": "aws_s3_bucket",
+				"name": "logs",
+				"change": {"actions": ["delete", "create"]}
+			}
+		]
+	}`)
+
+	resources, err := parseAssessmentJSONOutput(body)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resources) != 2 {
+		t.Fatalf("expected 2 resources, got %d", len(resources))
+	}
+	if resources[0].Address != "aws_security_group.web" {
+		t.Errorf("expected address 'aws_security_group.web', got %q", resources[0].Address)
+	}
+	if resources[0].Type != "aws_security_group" {
+		t.Errorf("expected type 'aws_security_group', got %q", resources[0].Type)
+	}
+	if resources[0].Name != "web" {
+		t.Errorf("expected name 'web', got %q", resources[0].Name)
+	}
+	if resources[0].Action != "update" {
+		t.Errorf("expected action 'update', got %q", resources[0].Action)
+	}
+	if resources[1].Action != "delete, create" {
+		t.Errorf("expected action 'delete, create', got %q", resources[1].Action)
+	}
+}
+
+func TestParseAssessmentJSONOutput_NoResourceDrift(t *testing.T) {
+	body := []byte(`{"resource_drift": []}`)
+
+	resources, err := parseAssessmentJSONOutput(body)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resources) != 0 {
+		t.Errorf("expected 0 resources, got %d", len(resources))
+	}
+}
+
+func TestParseAssessmentJSONOutput_MissingField(t *testing.T) {
+	body := []byte(`{}`)
+
+	resources, err := parseAssessmentJSONOutput(body)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resources) != 0 {
+		t.Errorf("expected 0 resources, got %d", len(resources))
+	}
+}
+
+func TestParseAssessmentJSONOutput_EmptyActions(t *testing.T) {
+	body := []byte(`{
+		"resource_drift": [
+			{
+				"address": "aws_instance.test",
+				"type": "aws_instance",
+				"name": "test",
+				"change": {"actions": []}
+			}
+		]
+	}`)
+
+	resources, err := parseAssessmentJSONOutput(body)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resources) != 1 {
+		t.Fatalf("expected 1 resource, got %d", len(resources))
+	}
+	if resources[0].Action != "unknown" {
+		t.Errorf("expected action 'unknown' for empty actions, got %q", resources[0].Action)
+	}
+}
+
+func TestParseAssessmentJSONOutput_InvalidJSON(t *testing.T) {
+	_, err := parseAssessmentJSONOutput([]byte(`not json`))
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to parse") {
+		t.Errorf("expected 'failed to parse' error, got: %v", err)
+	}
+}
