@@ -14,11 +14,11 @@ import (
 )
 
 type orgShowJSON struct {
-	Name         string           `json:"name"`
-	Email        string           `json:"email"`
-	Plan         string           `json:"plan"`
-	CreatedAt    string           `json:"created_at"`
-	Entitlements entitlementsJSON `json:"entitlements"`
+	Name         string            `json:"name"`
+	Email        string            `json:"email"`
+	Plan         string            `json:"plan"`
+	CreatedAt    string            `json:"created_at"`
+	Entitlements *entitlementsJSON `json:"entitlements,omitempty"`
 }
 
 type entitlementsJSON struct {
@@ -78,23 +78,20 @@ func runOrgShow(svc orgShowService, orgName string) error {
 		return fmt.Errorf("failed to read organization %q: %w", orgName, err)
 	}
 
-	sub, err := svc.ReadSubscription(ctx, orgName)
-	if err != nil {
-		return fmt.Errorf("failed to read subscription for %q: %w", orgName, err)
-	}
-
-	entitlements, err := svc.ReadEntitlements(ctx, orgName)
-	if err != nil {
-		return fmt.Errorf("failed to read entitlements for %q: %w", orgName, err)
-	}
+	sub, _ := svc.ReadSubscription(ctx, orgName)
+	entitlements, _ := svc.ReadEntitlements(ctx, orgName)
 
 	if viper.GetBool("json") {
-		return output.PrintJSON(os.Stdout, orgShowJSON{
+		j := orgShowJSON{
 			Name:      org.Name,
 			Email:     org.Email,
-			Plan:      sub.PlanName,
 			CreatedAt: org.CreatedAt.Format("2006-01-02 15:04:05"),
-			Entitlements: entitlementsJSON{
+		}
+		if sub != nil {
+			j.Plan = sub.PlanName
+		}
+		if entitlements != nil {
+			j.Entitlements = &entitlementsJSON{
 				Agents:                entitlements.Agents,
 				AuditLogging:          entitlements.AuditLogging,
 				CostEstimation:        entitlements.CostEstimation,
@@ -106,35 +103,43 @@ func runOrgShow(svc orgShowService, orgName string) error {
 				StateStorage:          entitlements.StateStorage,
 				Teams:                 entitlements.Teams,
 				VCSIntegrations:       entitlements.VCSIntegrations,
-			},
-		})
+			}
+		}
+		return output.PrintJSON(os.Stdout, j)
+	}
+
+	planValue := "(failed to retrieve)"
+	if sub != nil {
+		planValue = sub.PlanName
 	}
 
 	pairs := []output.KeyValue{
 		{Key: "Name", Value: org.Name},
 		{Key: "Email", Value: org.Email},
-		{Key: "Plan", Value: sub.PlanName},
+		{Key: "Plan", Value: planValue},
 		{Key: "Created At", Value: org.CreatedAt.Format("2006-01-02 15:04:05")},
 	}
 
-	entPairs := []struct {
-		key string
-		val bool
-	}{
-		{"Agents", entitlements.Agents},
-		{"Audit Logging", entitlements.AuditLogging},
-		{"Cost Estimation", entitlements.CostEstimation},
-		{"Operations", entitlements.Operations},
-		{"Private Module Registry", entitlements.PrivateModuleRegistry},
-		{"Run Tasks", entitlements.RunTasks},
-		{"SSO", entitlements.SSO},
-		{"Sentinel", entitlements.Sentinel},
-		{"State Storage", entitlements.StateStorage},
-		{"Teams", entitlements.Teams},
-		{"VCS Integrations", entitlements.VCSIntegrations},
-	}
-	for _, ep := range entPairs {
-		pairs = append(pairs, output.KeyValue{Key: ep.key, Value: strconv.FormatBool(ep.val)})
+	if entitlements != nil {
+		entPairs := []struct {
+			key string
+			val bool
+		}{
+			{"Agents", entitlements.Agents},
+			{"Audit Logging", entitlements.AuditLogging},
+			{"Cost Estimation", entitlements.CostEstimation},
+			{"Operations", entitlements.Operations},
+			{"Private Module Registry", entitlements.PrivateModuleRegistry},
+			{"Run Tasks", entitlements.RunTasks},
+			{"SSO", entitlements.SSO},
+			{"Sentinel", entitlements.Sentinel},
+			{"State Storage", entitlements.StateStorage},
+			{"Teams", entitlements.Teams},
+			{"VCS Integrations", entitlements.VCSIntegrations},
+		}
+		for _, ep := range entPairs {
+			pairs = append(pairs, output.KeyValue{Key: ep.key, Value: strconv.FormatBool(ep.val)})
+		}
 	}
 
 	output.PrintKeyValue(os.Stdout, pairs)

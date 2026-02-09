@@ -248,8 +248,9 @@ func TestOrgShow_ReadOrgError(t *testing.T) {
 	}
 }
 
-func TestOrgShow_ReadSubscriptionError(t *testing.T) {
+func TestOrgShow_ReadSubscriptionError_NonFatal(t *testing.T) {
 	viper.Reset()
+	viper.Set("json", false)
 	viper.Set("org", "test-org")
 
 	mock := &mockOrgShowService{
@@ -259,29 +260,42 @@ func TestOrgShow_ReadSubscriptionError(t *testing.T) {
 			CreatedAt: time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
 		},
 		subscriptionErr: fmt.Errorf("subscription error"),
+		entitlements: &tfe.Entitlements{
+			Teams: true,
+		},
 	}
 
-	cmd := newCmdOrgShowWith(func() (orgShowService, error) {
-		return mock, nil
-	})
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runOrgShow(mock, "test-org")
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("expected no error (non-fatal), got: %v", err)
+	}
 
 	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-	cmd.SetErr(&buf)
-	cmd.SilenceUsage = true
-	cmd.SilenceErrors = true
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
 
-	err := cmd.Execute()
-	if err == nil {
-		t.Fatal("expected error, got nil")
+	if !strings.Contains(got, "test-org") {
+		t.Errorf("expected org name in output, got:\n%s", got)
 	}
-	if !strings.Contains(err.Error(), "subscription error") {
-		t.Errorf("expected 'subscription error', got: %v", err)
+	if !strings.Contains(got, "(failed to retrieve)") {
+		t.Errorf("expected '(failed to retrieve)' for plan, got:\n%s", got)
+	}
+	if !strings.Contains(got, "Teams:") {
+		t.Errorf("expected entitlements in output, got:\n%s", got)
 	}
 }
 
-func TestOrgShow_ReadEntitlementsError(t *testing.T) {
+func TestOrgShow_ReadEntitlementsError_NonFatal(t *testing.T) {
 	viper.Reset()
+	viper.Set("json", false)
 	viper.Set("org", "test-org")
 
 	mock := &mockOrgShowService{
@@ -297,21 +311,113 @@ func TestOrgShow_ReadEntitlementsError(t *testing.T) {
 		entitlementsErr: fmt.Errorf("entitlements error"),
 	}
 
-	cmd := newCmdOrgShowWith(func() (orgShowService, error) {
-		return mock, nil
-	})
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runOrgShow(mock, "test-org")
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("expected no error (non-fatal), got: %v", err)
+	}
 
 	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-	cmd.SetErr(&buf)
-	cmd.SilenceUsage = true
-	cmd.SilenceErrors = true
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
 
-	err := cmd.Execute()
-	if err == nil {
-		t.Fatal("expected error, got nil")
+	if !strings.Contains(got, "test-org") {
+		t.Errorf("expected org name in output, got:\n%s", got)
 	}
-	if !strings.Contains(err.Error(), "entitlements error") {
-		t.Errorf("expected 'entitlements error', got: %v", err)
+	if !strings.Contains(got, "Free") {
+		t.Errorf("expected plan name in output, got:\n%s", got)
+	}
+	if strings.Contains(got, "Teams:") {
+		t.Errorf("entitlements should not appear when failed, got:\n%s", got)
+	}
+}
+
+func TestOrgShow_BothSubAndEntitlementsError_NonFatal(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+	viper.Set("org", "test-org")
+
+	mock := &mockOrgShowService{
+		org: &tfe.Organization{
+			Name:      "test-org",
+			Email:     "admin@example.com",
+			CreatedAt: time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
+		},
+		subscriptionErr: fmt.Errorf("subscription 404"),
+		entitlementsErr: fmt.Errorf("entitlements 404"),
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runOrgShow(mock, "test-org")
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("expected no error (non-fatal), got: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
+
+	if !strings.Contains(got, "test-org") {
+		t.Errorf("expected org name in output, got:\n%s", got)
+	}
+	if !strings.Contains(got, "(failed to retrieve)") {
+		t.Errorf("expected fallback plan in output, got:\n%s", got)
+	}
+}
+
+func TestOrgShow_SubscriptionError_JSON(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", true)
+	viper.Set("org", "test-org")
+
+	mock := &mockOrgShowService{
+		org: &tfe.Organization{
+			Name:      "test-org",
+			Email:     "admin@example.com",
+			CreatedAt: time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
+		},
+		subscriptionErr: fmt.Errorf("subscription error"),
+		entitlementsErr: fmt.Errorf("entitlements error"),
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runOrgShow(mock, "test-org")
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
+
+	if !strings.Contains(got, `"name": "test-org"`) {
+		t.Errorf("expected org name in JSON, got:\n%s", got)
+	}
+	if !strings.Contains(got, `"plan": ""`) {
+		t.Errorf("expected empty plan in JSON, got:\n%s", got)
+	}
+	if strings.Contains(got, `"entitlements"`) {
+		t.Errorf("entitlements should be omitted from JSON when failed, got:\n%s", got)
 	}
 }
