@@ -64,7 +64,7 @@ type driftJSON struct {
 	LastAssessment     string `json:"last_assessment"`
 }
 
-const maxConcurrency = 10
+const maxConcurrency = 5
 
 func runDriftList(svc driftService, org string, all bool) error {
 	ctx := context.Background()
