@@ -61,6 +61,26 @@ type AssessmentService interface {
 	ReadCurrentAssessment(ctx context.Context, workspaceID string) (*AssessmentResult, error)
 }
 
+// ExplorerWorkspace holds a workspace entry returned by the Explorer API.
+type ExplorerWorkspace struct {
+	WorkspaceName      string
+	Drifted            bool
+	ResourcesDrifted   int
+	ResourcesUndrifted int
+}
+
+// ExplorerWorkspaceList holds the result of an Explorer API query.
+type ExplorerWorkspaceList struct {
+	Items      []ExplorerWorkspace
+	TotalPages int
+	NextPage   int
+}
+
+// ExplorerService provides operations using the Explorer API.
+type ExplorerService interface {
+	ListExplorerWorkspaces(ctx context.Context, org string, driftedOnly bool, page int) (*ExplorerWorkspaceList, error)
+}
+
 // SubscriptionInfo holds organization subscription/plan information.
 type SubscriptionInfo struct {
 	PlanName   string
@@ -165,6 +185,94 @@ func (c *ClientWrapper) DeleteVariable(ctx context.Context, workspaceID string, 
 
 func (c *ClientWrapper) ListProjects(ctx context.Context, org string, opts *tfe.ProjectListOptions) (*tfe.ProjectList, error) {
 	return c.client.Projects.List(ctx, org, opts)
+}
+
+// ListExplorerWorkspaces queries the Explorer API for workspace drift data.
+// If driftedOnly is true, adds a server-side filter for drifted=true.
+func (c *ClientWrapper) ListExplorerWorkspaces(ctx context.Context, org string, driftedOnly bool, page int) (*ExplorerWorkspaceList, error) {
+	address := c.address
+	if address == "" {
+		address = "https://app.terraform.io"
+	}
+
+	apiURL := strings.TrimRight(address, "/") + "/api/v2/organizations/" + url.PathEscape(org) + "/explorer"
+
+	params := url.Values{}
+	params.Set("type", "workspaces")
+	params.Set("page[size]", "100")
+	if page > 0 {
+		params.Set("page[number]", strconv.Itoa(page))
+	}
+	if driftedOnly {
+		params.Set("filter[0][drifted][is][0]", "true")
+	}
+
+	fullURL := apiURL + "?" + params.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", fullURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Content-Type", "application/vnd.api+json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch explorer data: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("explorer endpoint returned HTTP %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read explorer response: %w", err)
+	}
+
+	return parseExplorerWorkspacesResponse(body)
+}
+
+// parseExplorerWorkspacesResponse extracts workspace data from the Explorer API JSON response.
+func parseExplorerWorkspacesResponse(body []byte) (*ExplorerWorkspaceList, error) {
+	var response struct {
+		Data []struct {
+			Attributes struct {
+				WorkspaceName      string `json:"workspace-name"`
+				Drifted            bool   `json:"drifted"`
+				ResourcesDrifted   int    `json:"resources-drifted"`
+				ResourcesUndrifted int    `json:"resources-undrifted"`
+			} `json:"attributes"`
+		} `json:"data"`
+		Meta struct {
+			Pagination struct {
+				TotalPages  int `json:"total-pages"`
+				CurrentPage int `json:"current-page"`
+				NextPage    int `json:"next-page"`
+			} `json:"pagination"`
+		} `json:"meta"`
+	}
+
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to parse explorer response: %w", err)
+	}
+
+	items := make([]ExplorerWorkspace, 0, len(response.Data))
+	for _, d := range response.Data {
+		items = append(items, ExplorerWorkspace{
+			WorkspaceName:      d.Attributes.WorkspaceName,
+			Drifted:            d.Attributes.Drifted,
+			ResourcesDrifted:   d.Attributes.ResourcesDrifted,
+			ResourcesUndrifted: d.Attributes.ResourcesUndrifted,
+		})
+	}
+
+	return &ExplorerWorkspaceList{
+		Items:      items,
+		TotalPages: response.Meta.Pagination.TotalPages,
+		NextPage:   response.Meta.Pagination.NextPage,
+	}, nil
 }
 
 // ReadCurrentAssessment fetches the current assessment result for a workspace.

@@ -14,11 +14,22 @@ import (
 	"github.com/nnstt1/hcpt/internal/output"
 )
 
-func newCmdDriftShow() *cobra.Command {
-	return newCmdDriftShowWith(defaultDriftClientFactory)
+type driftShowService interface {
+	client.WorkspaceService
+	client.AssessmentService
 }
 
-func newCmdDriftShowWith(clientFn driftClientFactory) *cobra.Command {
+type driftShowClientFactory func() (driftShowService, error)
+
+func defaultDriftShowClientFactory() (driftShowService, error) {
+	return client.NewClientWrapper()
+}
+
+func newCmdDriftShow() *cobra.Command {
+	return newCmdDriftShowWith(defaultDriftShowClientFactory)
+}
+
+func newCmdDriftShowWith(clientFn driftShowClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "show <workspace>",
 		Short: "Show drift detection detail for a workspace",
@@ -39,7 +50,15 @@ func newCmdDriftShowWith(clientFn driftClientFactory) *cobra.Command {
 	return cmd
 }
 
-func runDriftShow(svc driftService, org, name string) error {
+type driftShowJSON struct {
+	Workspace          string `json:"workspace"`
+	Drifted            *bool  `json:"drifted"`
+	ResourcesDrifted   *int   `json:"resources_drifted"`
+	ResourcesUndrifted *int   `json:"resources_undrifted"`
+	LastAssessment     string `json:"last_assessment"`
+}
+
+func runDriftShow(svc driftShowService, org, name string) error {
 	ctx := context.Background()
 	ws, err := svc.ReadWorkspace(ctx, org, name)
 	if err != nil {
@@ -52,12 +71,25 @@ func runDriftShow(svc driftService, org, name string) error {
 	}
 
 	if viper.GetBool("json") {
-		return output.PrintJSON(os.Stdout, toDriftJSON(ws, result))
+		return output.PrintJSON(os.Stdout, toDriftShowJSON(ws, result))
 	}
 
 	pairs := buildDriftShowKeyValues(ws, result)
 	output.PrintKeyValue(os.Stdout, pairs)
 	return nil
+}
+
+func toDriftShowJSON(ws *tfe.Workspace, result *client.AssessmentResult) driftShowJSON {
+	d := driftShowJSON{
+		Workspace: ws.Name,
+	}
+	if result != nil {
+		d.Drifted = &result.Drifted
+		d.ResourcesDrifted = &result.ResourcesDrifted
+		d.ResourcesUndrifted = &result.ResourcesUndrifted
+		d.LastAssessment = result.CreatedAt
+	}
+	return d
 }
 
 func buildDriftShowKeyValues(ws *tfe.Workspace, result *client.AssessmentResult) []output.KeyValue {

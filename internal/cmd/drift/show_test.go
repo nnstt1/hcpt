@@ -2,6 +2,7 @@ package drift
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -13,12 +14,40 @@ import (
 	"github.com/nnstt1/hcpt/internal/client"
 )
 
+type mockDriftShowService struct {
+	workspace   *tfe.Workspace
+	readErr     error
+	assessments map[string]*client.AssessmentResult
+	assessErr   error
+}
+
+func (m *mockDriftShowService) ListWorkspaces(_ context.Context, _ string, _ *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *mockDriftShowService) ReadWorkspace(_ context.Context, _ string, _ string) (*tfe.Workspace, error) {
+	if m.readErr != nil {
+		return nil, m.readErr
+	}
+	return m.workspace, nil
+}
+
+func (m *mockDriftShowService) ReadCurrentAssessment(_ context.Context, workspaceID string) (*client.AssessmentResult, error) {
+	if m.assessErr != nil {
+		return nil, m.assessErr
+	}
+	if m.assessments != nil {
+		return m.assessments[workspaceID], nil
+	}
+	return nil, nil
+}
+
 func TestDriftShow_Table(t *testing.T) {
 	viper.Reset()
 	viper.Set("json", false)
 	viper.Set("org", "test-org")
 
-	mock := &mockDriftService{
+	mock := &mockDriftShowService{
 		workspace: &tfe.Workspace{
 			Name: "my-workspace",
 			ID:   "ws-abc123",
@@ -63,7 +92,7 @@ func TestDriftShow_JSON(t *testing.T) {
 	viper.Set("json", true)
 	viper.Set("org", "test-org")
 
-	mock := &mockDriftService{
+	mock := &mockDriftShowService{
 		workspace: &tfe.Workspace{
 			Name: "my-workspace",
 			ID:   "ws-abc123",
@@ -108,7 +137,7 @@ func TestDriftShow_NotReady(t *testing.T) {
 	viper.Set("json", false)
 	viper.Set("org", "test-org")
 
-	mock := &mockDriftService{
+	mock := &mockDriftShowService{
 		workspace: &tfe.Workspace{
 			Name: "my-workspace",
 			ID:   "ws-abc123",
@@ -140,8 +169,8 @@ func TestDriftShow_NotReady(t *testing.T) {
 func TestDriftShow_NoOrg(t *testing.T) {
 	viper.Reset()
 
-	cmd := newCmdDriftShowWith(func() (driftService, error) {
-		return &mockDriftService{}, nil
+	cmd := newCmdDriftShowWith(func() (driftShowService, error) {
+		return &mockDriftShowService{}, nil
 	})
 
 	var buf bytes.Buffer
@@ -164,7 +193,7 @@ func TestDriftShow_ClientError(t *testing.T) {
 	viper.Reset()
 	viper.Set("org", "test-org")
 
-	cmd := newCmdDriftShowWith(func() (driftService, error) {
+	cmd := newCmdDriftShowWith(func() (driftShowService, error) {
 		return nil, fmt.Errorf("token missing")
 	})
 
@@ -188,11 +217,11 @@ func TestDriftShow_ReadWorkspaceError(t *testing.T) {
 	viper.Reset()
 	viper.Set("org", "test-org")
 
-	mock := &mockDriftService{
+	mock := &mockDriftShowService{
 		readErr: fmt.Errorf("workspace not found"),
 	}
 
-	cmd := newCmdDriftShowWith(func() (driftService, error) {
+	cmd := newCmdDriftShowWith(func() (driftShowService, error) {
 		return mock, nil
 	})
 
@@ -216,7 +245,7 @@ func TestDriftShow_AssessmentError(t *testing.T) {
 	viper.Reset()
 	viper.Set("org", "test-org")
 
-	mock := &mockDriftService{
+	mock := &mockDriftShowService{
 		workspace: &tfe.Workspace{
 			Name: "my-workspace",
 			ID:   "ws-abc123",
@@ -224,7 +253,7 @@ func TestDriftShow_AssessmentError(t *testing.T) {
 		assessErr: fmt.Errorf("assessment API error"),
 	}
 
-	cmd := newCmdDriftShowWith(func() (driftService, error) {
+	cmd := newCmdDriftShowWith(func() (driftShowService, error) {
 		return mock, nil
 	})
 
@@ -248,8 +277,8 @@ func TestDriftShow_NoArgs(t *testing.T) {
 	viper.Reset()
 	viper.Set("org", "test-org")
 
-	cmd := newCmdDriftShowWith(func() (driftService, error) {
-		return &mockDriftService{}, nil
+	cmd := newCmdDriftShowWith(func() (driftShowService, error) {
+		return &mockDriftShowService{}, nil
 	})
 
 	var buf bytes.Buffer

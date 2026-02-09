@@ -140,3 +140,83 @@ func TestRetryAfterDuration_NegativeHeader(t *testing.T) {
 		t.Errorf("expected 1s fallback for negative header, got %v", got)
 	}
 }
+
+func TestParseExplorerWorkspacesResponse(t *testing.T) {
+	body := []byte(`{
+		"data": [
+			{
+				"type": "workspace-summaries",
+				"attributes": {
+					"workspace-name": "prod-vpc",
+					"drifted": true,
+					"resources-drifted": 3,
+					"resources-undrifted": 12
+				}
+			},
+			{
+				"type": "workspace-summaries",
+				"attributes": {
+					"workspace-name": "staging",
+					"drifted": false,
+					"resources-drifted": 0,
+					"resources-undrifted": 20
+				}
+			}
+		],
+		"meta": {
+			"pagination": {
+				"total-pages": 2,
+				"current-page": 1,
+				"next-page": 2
+			}
+		}
+	}`)
+
+	result, err := parseExplorerWorkspacesResponse(body)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Items) != 2 {
+		t.Fatalf("expected 2 items, got %d", len(result.Items))
+	}
+	if result.Items[0].WorkspaceName != "prod-vpc" {
+		t.Errorf("expected workspace name 'prod-vpc', got %q", result.Items[0].WorkspaceName)
+	}
+	if !result.Items[0].Drifted {
+		t.Error("expected prod-vpc to be drifted")
+	}
+	if result.Items[0].ResourcesDrifted != 3 {
+		t.Errorf("expected ResourcesDrifted=3, got %d", result.Items[0].ResourcesDrifted)
+	}
+	if result.Items[1].Drifted {
+		t.Error("expected staging to not be drifted")
+	}
+	if result.TotalPages != 2 {
+		t.Errorf("expected TotalPages=2, got %d", result.TotalPages)
+	}
+	if result.NextPage != 2 {
+		t.Errorf("expected NextPage=2, got %d", result.NextPage)
+	}
+}
+
+func TestParseExplorerWorkspacesResponse_Empty(t *testing.T) {
+	body := []byte(`{"data": [], "meta": {"pagination": {"total-pages": 0, "current-page": 1, "next-page": 0}}}`)
+
+	result, err := parseExplorerWorkspacesResponse(body)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Items) != 0 {
+		t.Errorf("expected 0 items, got %d", len(result.Items))
+	}
+}
+
+func TestParseExplorerWorkspacesResponse_InvalidJSON(t *testing.T) {
+	_, err := parseExplorerWorkspacesResponse([]byte(`not json`))
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to parse") {
+		t.Errorf("expected 'failed to parse' error, got: %v", err)
+	}
+}
