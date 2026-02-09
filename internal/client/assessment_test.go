@@ -3,6 +3,7 @@ package client
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestParseAssessmentResponse_Drifted(t *testing.T) {
@@ -95,5 +96,47 @@ func TestParseAssessmentResponse_EmptyBody(t *testing.T) {
 	}
 	if result.ResourcesDrifted != 0 {
 		t.Errorf("expected ResourcesDrifted=0, got %d", result.ResourcesDrifted)
+	}
+}
+
+func TestRetryAfterDuration_ValidHeader(t *testing.T) {
+	got := retryAfterDuration("5", 0)
+	if got != 5*time.Second {
+		t.Errorf("expected 5s, got %v", got)
+	}
+}
+
+func TestRetryAfterDuration_InvalidHeader_FallbackExponential(t *testing.T) {
+	tests := []struct {
+		header  string
+		attempt int
+		want    time.Duration
+	}{
+		{"", 0, 1 * time.Second},
+		{"", 1, 2 * time.Second},
+		{"", 2, 4 * time.Second},
+		{"invalid", 0, 1 * time.Second},
+		{"invalid", 1, 2 * time.Second},
+	}
+	for _, tt := range tests {
+		got := retryAfterDuration(tt.header, tt.attempt)
+		if got != tt.want {
+			t.Errorf("retryAfterDuration(%q, %d) = %v, want %v", tt.header, tt.attempt, got, tt.want)
+		}
+	}
+}
+
+func TestRetryAfterDuration_ZeroHeader(t *testing.T) {
+	// "0" is not a valid positive value, should fall back to exponential
+	got := retryAfterDuration("0", 0)
+	if got != 1*time.Second {
+		t.Errorf("expected 1s fallback, got %v", got)
+	}
+}
+
+func TestRetryAfterDuration_NegativeHeader(t *testing.T) {
+	got := retryAfterDuration("-1", 0)
+	if got != 1*time.Second {
+		t.Errorf("expected 1s fallback for negative header, got %v", got)
 	}
 }

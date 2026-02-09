@@ -7,7 +7,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
+	"time"
 
 	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/viper"
@@ -167,7 +169,8 @@ func (c *ClientWrapper) ListProjects(ctx context.Context, org string, opts *tfe.
 
 // ReadCurrentAssessment fetches the current assessment result for a workspace.
 // Returns nil, nil if assessment is disabled or has not run (HTTP 404).
-func (c *ClientWrapper) ReadCurrentAssessment(_ context.Context, workspaceID string) (*AssessmentResult, error) {
+// Retries on HTTP 429 (rate limit) with backoff.
+func (c *ClientWrapper) ReadCurrentAssessment(ctx context.Context, workspaceID string) (*AssessmentResult, error) {
 	address := c.address
 	if address == "" {
 		address = "https://app.terraform.io"
@@ -175,33 +178,63 @@ func (c *ClientWrapper) ReadCurrentAssessment(_ context.Context, workspaceID str
 
 	apiURL := strings.TrimRight(address, "/") + "/api/v2/workspaces/" + url.PathEscape(workspaceID) + "/current-assessment-result"
 
-	req, err := http.NewRequest("GET", apiURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
-	req.Header.Set("Content-Type", "application/vnd.api+json")
+	const maxRetries = 3
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch assessment result: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
+	for attempt := range maxRetries {
+		req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		req.Header.Set("Authorization", "Bearer "+c.token)
+		req.Header.Set("Content-Type", "application/vnd.api+json")
 
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, nil
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch assessment result: %w", err)
+		}
+
+		if resp.StatusCode == http.StatusTooManyRequests {
+			_ = resp.Body.Close()
+			if attempt == maxRetries-1 {
+				return nil, fmt.Errorf("assessment endpoint rate limited (HTTP 429) after %d retries", maxRetries)
+			}
+			wait := retryAfterDuration(resp.Header.Get("Retry-After"), attempt)
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(wait):
+				continue
+			}
+		}
+
+		defer func() { _ = resp.Body.Close() }()
+
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, nil
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("assessment endpoint returned HTTP %d", resp.StatusCode)
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read assessment response: %w", err)
+		}
+
+		return parseAssessmentResponse(body)
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("assessment endpoint returned HTTP %d", resp.StatusCode)
-	}
+	return nil, fmt.Errorf("assessment endpoint: unexpected retry loop exit")
+}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read assessment response: %w", err)
+// retryAfterDuration parses the Retry-After header or falls back to exponential backoff.
+func retryAfterDuration(header string, attempt int) time.Duration {
+	if seconds, err := strconv.Atoi(header); err == nil && seconds > 0 {
+		return time.Duration(seconds) * time.Second
 	}
-
-	return parseAssessmentResponse(body)
+	// Exponential backoff: 1s, 2s, 4s
+	return time.Duration(1<<uint(attempt)) * time.Second
 }
 
 // parseAssessmentResponse extracts assessment result from the JSON:API response.

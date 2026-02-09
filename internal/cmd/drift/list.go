@@ -1,41 +1,43 @@
-package workspace
+package drift
 
 import (
 	"context"
 	"fmt"
 	"os"
 	"strconv"
+	"sync"
 
 	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/time/rate"
 
 	"github.com/nnstt1/hcpt/internal/client"
 	"github.com/nnstt1/hcpt/internal/output"
 )
 
-type wsDriftService interface {
+type driftService interface {
 	client.WorkspaceService
 	client.AssessmentService
 }
 
-type wsDriftClientFactory func() (wsDriftService, error)
+type driftClientFactory func() (driftService, error)
 
-func defaultWSDriftClientFactory() (wsDriftService, error) {
+func defaultDriftClientFactory() (driftService, error) {
 	return client.NewClientWrapper()
 }
 
-func newCmdWorkspaceDrift() *cobra.Command {
-	return newCmdWorkspaceDriftWith(defaultWSDriftClientFactory)
+func newCmdDriftList() *cobra.Command {
+	return newCmdDriftListWith(defaultDriftClientFactory)
 }
 
-func newCmdWorkspaceDriftWith(clientFn wsDriftClientFactory) *cobra.Command {
+func newCmdDriftListWith(clientFn driftClientFactory) *cobra.Command {
 	var all bool
 
 	cmd := &cobra.Command{
-		Use:   "drift [name]",
-		Short: "Show drift detection status for workspaces",
-		Args:  cobra.MaximumNArgs(1),
+		Use:   "list",
+		Short: "List workspaces with drift status",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			org := viper.GetString("org")
 			if org == "" {
@@ -46,19 +48,11 @@ func newCmdWorkspaceDriftWith(clientFn wsDriftClientFactory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-
-			if all {
-				return runWorkspaceDriftAll(svc, org)
-			}
-
-			if len(args) == 0 {
-				return fmt.Errorf("workspace name is required, or use --all flag to list all workspaces")
-			}
-			return runWorkspaceDrift(svc, org, args[0])
+			return runDriftList(svc, org, all)
 		},
 	}
 
-	cmd.Flags().BoolVar(&all, "all", false, "show drift status for all workspaces")
+	cmd.Flags().BoolVar(&all, "all", false, "show all workspaces (default: drifted only)")
 
 	return cmd
 }
@@ -71,28 +65,13 @@ type driftJSON struct {
 	LastAssessment     string `json:"last_assessment"`
 }
 
-func runWorkspaceDrift(svc wsDriftService, org, name string) error {
-	ctx := context.Background()
-	ws, err := svc.ReadWorkspace(ctx, org, name)
-	if err != nil {
-		return fmt.Errorf("failed to read workspace %q: %w", name, err)
-	}
+const (
+	maxConcurrency = 20
+	apiRateLimit   = 25 // requests per second (API limit is 30, keep headroom)
+	apiRateBurst   = 5
+)
 
-	result, err := svc.ReadCurrentAssessment(ctx, ws.ID)
-	if err != nil {
-		return fmt.Errorf("failed to read assessment for workspace %q: %w", name, err)
-	}
-
-	if viper.GetBool("json") {
-		return output.PrintJSON(os.Stdout, toDriftJSON(ws, result))
-	}
-
-	pairs := buildDriftKeyValues(ws, result)
-	output.PrintKeyValue(os.Stdout, pairs)
-	return nil
-}
-
-func runWorkspaceDriftAll(svc wsDriftService, org string) error {
+func runDriftList(svc driftService, org string, all bool) error {
 	ctx := context.Background()
 	opts := &tfe.WorkspaceListOptions{
 		ListOptions: tfe.ListOptions{
@@ -100,6 +79,7 @@ func runWorkspaceDriftAll(svc wsDriftService, org string) error {
 		},
 	}
 
+	// Collect all workspaces first
 	var allWorkspaces []*tfe.Workspace
 	for {
 		wsList, err := svc.ListWorkspaces(ctx, org, opts)
@@ -113,18 +93,46 @@ func runWorkspaceDriftAll(svc wsDriftService, org string) error {
 		opts.PageNumber = wsList.NextPage
 	}
 
+	// Fetch assessment results concurrently with rate limiting
 	type wsResult struct {
 		ws     *tfe.Workspace
 		result *client.AssessmentResult
 	}
-	results := make([]wsResult, 0, len(allWorkspaces))
+	indexed := make([]wsResult, len(allWorkspaces))
 
-	for _, ws := range allWorkspaces {
-		result, err := svc.ReadCurrentAssessment(ctx, ws.ID)
-		if err != nil {
-			return fmt.Errorf("failed to read assessment for workspace %q: %w", ws.Name, err)
+	g, ctx := errgroup.WithContext(ctx)
+	g.SetLimit(maxConcurrency)
+	limiter := rate.NewLimiter(rate.Limit(apiRateLimit), apiRateBurst)
+
+	var mu sync.Mutex
+
+	for i, ws := range allWorkspaces {
+		indexed[i].ws = ws
+		g.Go(func() error {
+			if err := limiter.Wait(ctx); err != nil {
+				return err
+			}
+			result, err := svc.ReadCurrentAssessment(ctx, ws.ID)
+			if err != nil {
+				return fmt.Errorf("failed to read assessment for workspace %q: %w", ws.Name, err)
+			}
+			mu.Lock()
+			indexed[i].result = result
+			mu.Unlock()
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return err
+	}
+
+	// Filter results
+	var results []wsResult
+	for _, r := range indexed {
+		if all || (r.result != nil && r.result.Drifted) {
+			results = append(results, r)
 		}
-		results = append(results, wsResult{ws: ws, result: result})
 	}
 
 	if viper.GetBool("json") {
@@ -143,30 +151,6 @@ func runWorkspaceDriftAll(svc wsDriftService, org string) error {
 
 	output.Print(os.Stdout, headers, rows)
 	return nil
-}
-
-func buildDriftKeyValues(ws *tfe.Workspace, result *client.AssessmentResult) []output.KeyValue {
-	pairs := []output.KeyValue{
-		{Key: "Workspace", Value: ws.Name},
-	}
-
-	if result != nil {
-		pairs = append(pairs,
-			output.KeyValue{Key: "Drifted", Value: strconv.FormatBool(result.Drifted)},
-			output.KeyValue{Key: "Resources Drifted", Value: strconv.Itoa(result.ResourcesDrifted)},
-			output.KeyValue{Key: "Resources Undrifted", Value: strconv.Itoa(result.ResourcesUndrifted)},
-			output.KeyValue{Key: "Last Assessment", Value: result.CreatedAt},
-		)
-	} else {
-		pairs = append(pairs,
-			output.KeyValue{Key: "Drifted", Value: "not ready"},
-			output.KeyValue{Key: "Resources Drifted", Value: "-"},
-			output.KeyValue{Key: "Resources Undrifted", Value: "-"},
-			output.KeyValue{Key: "Last Assessment", Value: "-"},
-		)
-	}
-
-	return pairs
 }
 
 func buildDriftRow(ws *tfe.Workspace, result *client.AssessmentResult) []string {

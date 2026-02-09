@@ -78,12 +78,19 @@ hcpt ws list --org my-org
 
 # Workspace 詳細
 hcpt workspace show my-workspace --org my-org
+```
 
-# ドリフト検出状態を表示
-hcpt workspace drift my-workspace --org my-org
+### ドリフト検出
+
+```bash
+# ドリフトしているワークスペース一覧
+hcpt drift list --org my-org
 
 # 全ワークスペースのドリフト状態を表示
-hcpt workspace drift --all --org my-org
+hcpt drift list --all --org my-org
+
+# 特定ワークスペースのドリフト詳細
+hcpt drift show my-workspace --org my-org
 ```
 
 ### Run
