@@ -45,6 +45,20 @@ type ProjectService interface {
 	ListProjects(ctx context.Context, org string, opts *tfe.ProjectListOptions) (*tfe.ProjectList, error)
 }
 
+// AssessmentResult holds the current assessment (drift detection) result for a workspace.
+type AssessmentResult struct {
+	Drifted            bool
+	Succeeded          bool
+	ResourcesDrifted   int
+	ResourcesUndrifted int
+	CreatedAt          string
+}
+
+// AssessmentService provides operations to read workspace assessment results.
+type AssessmentService interface {
+	ReadCurrentAssessment(ctx context.Context, workspaceID string) (*AssessmentResult, error)
+}
+
 // SubscriptionInfo holds organization subscription/plan information.
 type SubscriptionInfo struct {
 	PlanName   string
@@ -149,6 +163,72 @@ func (c *ClientWrapper) DeleteVariable(ctx context.Context, workspaceID string, 
 
 func (c *ClientWrapper) ListProjects(ctx context.Context, org string, opts *tfe.ProjectListOptions) (*tfe.ProjectList, error) {
 	return c.client.Projects.List(ctx, org, opts)
+}
+
+// ReadCurrentAssessment fetches the current assessment result for a workspace.
+// Returns nil, nil if assessment is disabled or has not run (HTTP 404).
+func (c *ClientWrapper) ReadCurrentAssessment(_ context.Context, workspaceID string) (*AssessmentResult, error) {
+	address := c.address
+	if address == "" {
+		address = "https://app.terraform.io"
+	}
+
+	apiURL := strings.TrimRight(address, "/") + "/api/v2/workspaces/" + url.PathEscape(workspaceID) + "/current-assessment-result"
+
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Content-Type", "application/vnd.api+json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch assessment result: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("assessment endpoint returned HTTP %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read assessment response: %w", err)
+	}
+
+	return parseAssessmentResponse(body)
+}
+
+// parseAssessmentResponse extracts assessment result from the JSON:API response.
+func parseAssessmentResponse(body []byte) (*AssessmentResult, error) {
+	var response struct {
+		Data struct {
+			Attributes struct {
+				Drifted            bool   `json:"drifted"`
+				Succeeded          bool   `json:"succeeded"`
+				ResourcesDrifted   int    `json:"resources-drifted"`
+				ResourcesUndrifted int    `json:"resources-undrifted"`
+				CreatedAt          string `json:"created-at"`
+			} `json:"attributes"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to parse assessment response: %w", err)
+	}
+
+	return &AssessmentResult{
+		Drifted:            response.Data.Attributes.Drifted,
+		Succeeded:          response.Data.Attributes.Succeeded,
+		ResourcesDrifted:   response.Data.Attributes.ResourcesDrifted,
+		ResourcesUndrifted: response.Data.Attributes.ResourcesUndrifted,
+		CreatedAt:          response.Data.Attributes.CreatedAt,
+	}, nil
 }
 
 // ReadSubscription fetches subscription info from the organizations API.
