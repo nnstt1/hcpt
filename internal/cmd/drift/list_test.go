@@ -271,3 +271,91 @@ func TestDriftList_AssessmentError(t *testing.T) {
 		t.Errorf("expected 'assessment API error', got: %v", err)
 	}
 }
+
+func TestDriftList_ConcurrentResultOrder(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+	viper.Set("org", "test-org")
+
+	// Create 50 workspaces all drifted to verify order is preserved
+	workspaces := make([]*tfe.Workspace, 50)
+	assessments := make(map[string]*client.AssessmentResult)
+	for i := range 50 {
+		id := fmt.Sprintf("ws-%03d", i)
+		name := fmt.Sprintf("workspace-%03d", i)
+		workspaces[i] = &tfe.Workspace{Name: name, ID: id}
+		assessments[id] = &client.AssessmentResult{
+			Drifted:          true,
+			ResourcesDrifted: i + 1,
+			CreatedAt:        "2025-01-20T10:30:00.000Z",
+		}
+	}
+
+	mock := &mockDriftService{
+		workspaces:  workspaces,
+		assessments: assessments,
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runDriftList(mock, "test-org", true)
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
+
+	// Verify order: workspace-000 should appear before workspace-049
+	idx0 := strings.Index(got, "workspace-000")
+	idx49 := strings.Index(got, "workspace-049")
+	if idx0 == -1 || idx49 == -1 {
+		t.Fatalf("expected both workspace-000 and workspace-049 in output, got:\n%s", got)
+	}
+	if idx0 >= idx49 {
+		t.Errorf("expected workspace-000 before workspace-049, but got idx0=%d idx49=%d", idx0, idx49)
+	}
+}
+
+func TestDriftList_AssessmentErrorPropagation(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+	viper.Set("org", "test-org")
+
+	// Create enough workspaces to exercise concurrency
+	workspaces := make([]*tfe.Workspace, 10)
+	for i := range 10 {
+		workspaces[i] = &tfe.Workspace{
+			Name: fmt.Sprintf("ws-%d", i),
+			ID:   fmt.Sprintf("ws-%03d", i),
+		}
+	}
+
+	mock := &mockDriftService{
+		workspaces: workspaces,
+		assessErr:  fmt.Errorf("rate limited"),
+	}
+
+	oldStdout := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runDriftList(mock, "test-org", true)
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err == nil {
+		t.Fatal("expected error from concurrent assessment fetching, got nil")
+	}
+	if !strings.Contains(err.Error(), "rate limited") {
+		t.Errorf("expected 'rate limited' error, got: %v", err)
+	}
+}
