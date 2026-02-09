@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/time/rate"
 
 	"github.com/nnstt1/hcpt/internal/client"
 	"github.com/nnstt1/hcpt/internal/output"
@@ -64,7 +65,11 @@ type driftJSON struct {
 	LastAssessment     string `json:"last_assessment"`
 }
 
-const maxConcurrency = 5
+const (
+	maxConcurrency = 20
+	apiRateLimit   = 25 // requests per second (API limit is 30, keep headroom)
+	apiRateBurst   = 5
+)
 
 func runDriftList(svc driftService, org string, all bool) error {
 	ctx := context.Background()
@@ -88,7 +93,7 @@ func runDriftList(svc driftService, org string, all bool) error {
 		opts.PageNumber = wsList.NextPage
 	}
 
-	// Fetch assessment results concurrently
+	// Fetch assessment results concurrently with rate limiting
 	type wsResult struct {
 		ws     *tfe.Workspace
 		result *client.AssessmentResult
@@ -97,12 +102,16 @@ func runDriftList(svc driftService, org string, all bool) error {
 
 	g, ctx := errgroup.WithContext(ctx)
 	g.SetLimit(maxConcurrency)
+	limiter := rate.NewLimiter(rate.Limit(apiRateLimit), apiRateBurst)
 
 	var mu sync.Mutex
 
 	for i, ws := range allWorkspaces {
 		indexed[i].ws = ws
 		g.Go(func() error {
+			if err := limiter.Wait(ctx); err != nil {
+				return err
+			}
 			result, err := svc.ReadCurrentAssessment(ctx, ws.ID)
 			if err != nil {
 				return fmt.Errorf("failed to read assessment for workspace %q: %w", ws.Name, err)
