@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -24,9 +25,15 @@ type runShowJSON struct {
 	CreatedAt        time.Time `json:"created_at"`
 }
 
-type runShowClientFactory func() (client.RunService, error)
+// runShowService combines RunService and WorkspaceService for workspace ID resolution.
+type runShowService interface {
+	client.RunService
+	client.WorkspaceService
+}
 
-func defaultRunShowClientFactory() (client.RunService, error) {
+type runShowClientFactory func() (runShowService, error)
+
+func defaultRunShowClientFactory() (runShowService, error) {
 	return client.NewClientWrapper()
 }
 
@@ -35,28 +42,79 @@ func newCmdRunShow() *cobra.Command {
 }
 
 func newCmdRunShowWith(clientFn runShowClientFactory) *cobra.Command {
+	var workspaceName string
+
 	cmd := &cobra.Command{
-		Use:   "show <run-id>",
+		Use:   "show [run-id]",
 		Short: "Show run details",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			var runID string
+			if len(args) > 0 {
+				runID = args[0]
+			}
+
+			org := viper.GetString("org")
+			if org == "" && workspaceName != "" {
+				return fmt.Errorf("organization is required: use --org flag, TFE_ORG env, or set 'org' in config file")
+			}
+
+			if runID == "" && workspaceName == "" {
+				return fmt.Errorf("either run-id or --workspace is required")
+			}
+
 			svc, err := clientFn()
 			if err != nil {
 				return err
 			}
-			return runRunShow(svc, args[0])
+			return runRunShow(svc, runID, org, workspaceName)
 		},
 	}
+
+	cmd.Flags().StringVarP(&workspaceName, "workspace", "w", "", "workspace name (get latest run)")
+
 	return cmd
 }
 
-func runRunShow(svc client.RunService, runID string) error {
+func runRunShow(svc runShowService, runID string, org string, workspaceName string) error {
 	ctx := context.Background()
-	r, err := svc.ReadRun(ctx, runID)
-	if err != nil {
-		return fmt.Errorf("failed to read run %q: %w", runID, err)
+
+	var r *tfe.Run
+	var err error
+
+	// If run-id is specified, use it directly
+	if runID != "" {
+		r, err = svc.ReadRun(ctx, runID)
+		if err != nil {
+			return fmt.Errorf("failed to read run %q: %w", runID, err)
+		}
+	} else if workspaceName != "" {
+		// Get latest run for workspace
+		ws, err := svc.ReadWorkspace(ctx, org, workspaceName)
+		if err != nil {
+			return fmt.Errorf("failed to read workspace %q: %w", workspaceName, err)
+		}
+
+		runList, err := svc.ListRuns(ctx, ws.ID, &tfe.RunListOptions{
+			ListOptions: tfe.ListOptions{PageSize: 1},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to list runs: %w", err)
+		}
+
+		if len(runList.Items) == 0 {
+			return fmt.Errorf("no runs found for workspace %q", workspaceName)
+		}
+
+		r = runList.Items[0]
+	} else {
+		return fmt.Errorf("either run-id or --workspace is required")
 	}
 
+	return displayRun(r)
+}
+
+func displayRun(r *tfe.Run) error {
 	if viper.GetBool("json") {
 		return output.PrintJSON(os.Stdout, runShowJSON{
 			ID:               r.ID,
