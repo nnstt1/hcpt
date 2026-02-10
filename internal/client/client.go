@@ -74,6 +74,11 @@ type AssessmentService interface {
 // ExplorerWorkspace holds a workspace entry returned by the Explorer API.
 type ExplorerWorkspace struct {
 	WorkspaceName      string
+	WorkspaceID        string
+	TerraformVersion   string
+	CurrentRunStatus   string
+	ProjectName        string
+	UpdatedAt          string
 	Drifted            bool
 	ResourcesDrifted   int
 	ResourcesUndrifted int
@@ -86,9 +91,16 @@ type ExplorerWorkspaceList struct {
 	NextPage   int
 }
 
+// ExplorerListOptions holds options for the Explorer API query.
+type ExplorerListOptions struct {
+	DriftedOnly bool
+	Search      string
+	Page        int
+}
+
 // ExplorerService provides operations using the Explorer API.
 type ExplorerService interface {
-	ListExplorerWorkspaces(ctx context.Context, org string, driftedOnly bool, page int) (*ExplorerWorkspaceList, error)
+	ListExplorerWorkspaces(ctx context.Context, org string, opts ExplorerListOptions) (*ExplorerWorkspaceList, error)
 }
 
 // SubscriptionInfo holds organization subscription/plan information.
@@ -197,9 +209,8 @@ func (c *ClientWrapper) ListProjects(ctx context.Context, org string, opts *tfe.
 	return c.client.Projects.List(ctx, org, opts)
 }
 
-// ListExplorerWorkspaces queries the Explorer API for workspace drift data.
-// If driftedOnly is true, adds a server-side filter for drifted=true.
-func (c *ClientWrapper) ListExplorerWorkspaces(ctx context.Context, org string, driftedOnly bool, page int) (*ExplorerWorkspaceList, error) {
+// ListExplorerWorkspaces queries the Explorer API for workspace data.
+func (c *ClientWrapper) ListExplorerWorkspaces(ctx context.Context, org string, opts ExplorerListOptions) (*ExplorerWorkspaceList, error) {
 	address := c.address
 	if address == "" {
 		address = "https://app.terraform.io"
@@ -210,11 +221,16 @@ func (c *ClientWrapper) ListExplorerWorkspaces(ctx context.Context, org string, 
 	params := url.Values{}
 	params.Set("type", "workspaces")
 	params.Set("page[size]", "100")
-	if page > 0 {
-		params.Set("page[number]", strconv.Itoa(page))
+	if opts.Page > 0 {
+		params.Set("page[number]", strconv.Itoa(opts.Page))
 	}
-	if driftedOnly {
-		params.Set("filter[0][drifted][is][0]", "true")
+	filterIdx := 0
+	if opts.DriftedOnly {
+		params.Set(fmt.Sprintf("filter[%d][drifted][is][0]", filterIdx), "true")
+		filterIdx++
+	}
+	if opts.Search != "" {
+		params.Set(fmt.Sprintf("filter[%d][workspace-name][contains][0]", filterIdx), opts.Search)
 	}
 
 	fullURL := apiURL + "?" + params.Encode()
@@ -249,10 +265,15 @@ func parseExplorerWorkspacesResponse(body []byte) (*ExplorerWorkspaceList, error
 	var response struct {
 		Data []struct {
 			Attributes struct {
-				WorkspaceName      string `json:"workspace-name"`
-				Drifted            bool   `json:"drifted"`
-				ResourcesDrifted   int    `json:"resources-drifted"`
-				ResourcesUndrifted int    `json:"resources-undrifted"`
+				WorkspaceName             string `json:"workspace-name"`
+				ExternalID                string `json:"external-id"`
+				WorkspaceTerraformVersion string `json:"workspace-terraform-version"`
+				CurrentRunStatus          string `json:"current-run-status"`
+				ProjectName               string `json:"project-name"`
+				WorkspaceUpdatedAt        string `json:"workspace-updated-at"`
+				Drifted                   bool   `json:"drifted"`
+				ResourcesDrifted          int    `json:"resources-drifted"`
+				ResourcesUndrifted        int    `json:"resources-undrifted"`
 			} `json:"attributes"`
 		} `json:"data"`
 		Meta struct {
@@ -272,6 +293,11 @@ func parseExplorerWorkspacesResponse(body []byte) (*ExplorerWorkspaceList, error
 	for _, d := range response.Data {
 		items = append(items, ExplorerWorkspace{
 			WorkspaceName:      d.Attributes.WorkspaceName,
+			WorkspaceID:        d.Attributes.ExternalID,
+			TerraformVersion:   d.Attributes.WorkspaceTerraformVersion,
+			CurrentRunStatus:   d.Attributes.CurrentRunStatus,
+			ProjectName:        d.Attributes.ProjectName,
+			UpdatedAt:          d.Attributes.WorkspaceUpdatedAt,
 			Drifted:            d.Attributes.Drifted,
 			ResourcesDrifted:   d.Attributes.ResourcesDrifted,
 			ResourcesUndrifted: d.Attributes.ResourcesUndrifted,

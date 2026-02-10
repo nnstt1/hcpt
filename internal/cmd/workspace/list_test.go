@@ -7,39 +7,26 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
-	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/viper"
 
 	"github.com/nnstt1/hcpt/internal/client"
 )
 
-type mockWSService struct {
-	workspaces []*tfe.Workspace
-	workspace  *tfe.Workspace
-	listErr    error
-	readErr    error
-	listFn     func(opts *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error)
+type mockExplorerService struct {
+	items   []client.ExplorerWorkspace
+	listErr error
 }
 
-func (m *mockWSService) ListWorkspaces(_ context.Context, _ string, opts *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error) {
-	if m.listFn != nil {
-		return m.listFn(opts)
-	}
+func (m *mockExplorerService) ListExplorerWorkspaces(_ context.Context, _ string, _ client.ExplorerListOptions) (*client.ExplorerWorkspaceList, error) {
 	if m.listErr != nil {
 		return nil, m.listErr
 	}
-	return &tfe.WorkspaceList{
-		Items: m.workspaces,
+	return &client.ExplorerWorkspaceList{
+		Items:      m.items,
+		TotalPages: 1,
+		NextPage:   0,
 	}, nil
-}
-
-func (m *mockWSService) ReadWorkspace(_ context.Context, _ string, _ string) (*tfe.Workspace, error) {
-	if m.readErr != nil {
-		return nil, m.readErr
-	}
-	return m.workspace, nil
 }
 
 func TestWorkspaceList_Table(t *testing.T) {
@@ -47,21 +34,20 @@ func TestWorkspaceList_Table(t *testing.T) {
 	viper.Set("json", false)
 	viper.Set("org", "test-org")
 
-	mock := &mockWSService{
-		workspaces: []*tfe.Workspace{
+	mock := &mockExplorerService{
+		items: []client.ExplorerWorkspace{
 			{
-				Name:             "ws-1",
-				ID:               "ws-abc123",
-				ExecutionMode:    "remote",
+				WorkspaceName:    "ws-1",
+				WorkspaceID:      "ws-abc123",
+				ProjectName:      "default",
 				TerraformVersion: "1.5.0",
-				Locked:           false,
-				AutoApply:        true,
-				UpdatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
+				CurrentRunStatus: "applied",
+				UpdatedAt:        "2024-03-15T12:00:00Z",
 			},
 		},
 	}
 
-	cmd := newCmdWorkspaceListWith(func() (client.WorkspaceService, error) {
+	cmd := newCmdWorkspaceListWith(func() (client.ExplorerService, error) {
 		return mock, nil
 	})
 
@@ -80,16 +66,15 @@ func TestWorkspaceList_Table_Output(t *testing.T) {
 	viper.Set("json", false)
 	viper.Set("org", "test-org")
 
-	mock := &mockWSService{
-		workspaces: []*tfe.Workspace{
+	mock := &mockExplorerService{
+		items: []client.ExplorerWorkspace{
 			{
-				Name:             "ws-1",
-				ID:               "ws-abc123",
-				ExecutionMode:    "remote",
+				WorkspaceName:    "ws-1",
+				WorkspaceID:      "ws-abc123",
+				ProjectName:      "production",
 				TerraformVersion: "1.5.0",
-				Locked:           true,
-				AutoApply:        false,
-				UpdatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
+				CurrentRunStatus: "applied",
+				UpdatedAt:        "2024-03-15T12:00:00Z",
 			},
 		},
 	}
@@ -111,7 +96,7 @@ func TestWorkspaceList_Table_Output(t *testing.T) {
 	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
-	for _, want := range []string{"NAME", "ws-1", "ws-abc123", "remote", "1.5.0", "true", "false", "2024-03-15 12:00:00"} {
+	for _, want := range []string{"NAME", "ws-1", "ws-abc123", "production", "1.5.0", "applied", "2024-03-15T12:00:00Z"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("expected %q in output, got:\n%s", want, got)
 		}
@@ -123,13 +108,15 @@ func TestWorkspaceList_JSON(t *testing.T) {
 	viper.Set("json", true)
 	viper.Set("org", "test-org")
 
-	mock := &mockWSService{
-		workspaces: []*tfe.Workspace{
+	mock := &mockExplorerService{
+		items: []client.ExplorerWorkspace{
 			{
-				Name:             "ws-1",
-				ID:               "ws-abc123",
-				ExecutionMode:    "remote",
+				WorkspaceName:    "ws-1",
+				WorkspaceID:      "ws-abc123",
+				ProjectName:      "default",
 				TerraformVersion: "1.5.0",
+				CurrentRunStatus: "applied",
+				UpdatedAt:        "2024-03-15T12:00:00Z",
 			},
 		},
 	}
@@ -151,7 +138,14 @@ func TestWorkspaceList_JSON(t *testing.T) {
 	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
-	for _, want := range []string{`"name": "ws-1"`, `"id": "ws-abc123"`, `"execution_mode": "remote"`} {
+	for _, want := range []string{
+		`"name": "ws-1"`,
+		`"id": "ws-abc123"`,
+		`"terraform_version": "1.5.0"`,
+		`"current_run_status": "applied"`,
+		`"project_name": "default"`,
+		`"updated_at": "2024-03-15T12:00:00Z"`,
+	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("expected %q in JSON output, got:\n%s", want, got)
 		}
@@ -163,11 +157,11 @@ func TestWorkspaceList_Empty(t *testing.T) {
 	viper.Set("json", false)
 	viper.Set("org", "test-org")
 
-	mock := &mockWSService{
-		workspaces: []*tfe.Workspace{},
+	mock := &mockExplorerService{
+		items: []client.ExplorerWorkspace{},
 	}
 
-	cmd := newCmdWorkspaceListWith(func() (client.WorkspaceService, error) {
+	cmd := newCmdWorkspaceListWith(func() (client.ExplorerService, error) {
 		return mock, nil
 	})
 
@@ -185,7 +179,7 @@ func TestWorkspaceList_ClientError(t *testing.T) {
 	viper.Reset()
 	viper.Set("org", "test-org")
 
-	cmd := newCmdWorkspaceListWith(func() (client.WorkspaceService, error) {
+	cmd := newCmdWorkspaceListWith(func() (client.ExplorerService, error) {
 		return nil, fmt.Errorf("token missing")
 	})
 
@@ -207,8 +201,8 @@ func TestWorkspaceList_ClientError(t *testing.T) {
 func TestWorkspaceList_NoOrg(t *testing.T) {
 	viper.Reset()
 
-	cmd := newCmdWorkspaceListWith(func() (client.WorkspaceService, error) {
-		return &mockWSService{}, nil
+	cmd := newCmdWorkspaceListWith(func() (client.ExplorerService, error) {
+		return &mockExplorerService{}, nil
 	})
 
 	var buf bytes.Buffer
@@ -226,35 +220,61 @@ func TestWorkspaceList_NoOrg(t *testing.T) {
 	}
 }
 
+func TestWorkspaceList_Error(t *testing.T) {
+	viper.Reset()
+	viper.Set("org", "test-org")
+
+	mock := &mockExplorerService{
+		listErr: fmt.Errorf("api error"),
+	}
+
+	cmd := newCmdWorkspaceListWith(func() (client.ExplorerService, error) {
+		return mock, nil
+	})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "api error") {
+		t.Errorf("expected 'api error', got: %v", err)
+	}
+}
+
+type mockExplorerServicePaginated struct {
+	pages map[int][]client.ExplorerWorkspace
+}
+
+func (m *mockExplorerServicePaginated) ListExplorerWorkspaces(_ context.Context, _ string, opts client.ExplorerListOptions) (*client.ExplorerWorkspaceList, error) {
+	page := opts.Page
+	items := m.pages[page]
+	totalPages := len(m.pages)
+	nextPage := page + 1
+	if nextPage > totalPages {
+		nextPage = 0
+	}
+	return &client.ExplorerWorkspaceList{
+		Items:      items,
+		TotalPages: totalPages,
+		NextPage:   nextPage,
+	}, nil
+}
+
 func TestWorkspaceList_Pagination(t *testing.T) {
 	viper.Reset()
 	viper.Set("json", false)
 	viper.Set("org", "test-org")
 
-	mock := &mockWSService{
-		listFn: func(opts *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error) {
-			page := opts.PageNumber
-			if page == 0 {
-				page = 1
-			}
-			switch page {
-			case 1:
-				return &tfe.WorkspaceList{
-					Items: []*tfe.Workspace{
-						{Name: "ws-1", ID: "ws-1", UpdatedAt: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)},
-					},
-					Pagination: &tfe.Pagination{NextPage: 2, TotalPages: 2},
-				}, nil
-			case 2:
-				return &tfe.WorkspaceList{
-					Items: []*tfe.Workspace{
-						{Name: "ws-2", ID: "ws-2", UpdatedAt: time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC)},
-					},
-					Pagination: &tfe.Pagination{NextPage: 0, TotalPages: 2},
-				}, nil
-			default:
-				return nil, fmt.Errorf("unexpected page %d", page)
-			}
+	mock := &mockExplorerServicePaginated{
+		pages: map[int][]client.ExplorerWorkspace{
+			1: {{WorkspaceName: "ws-page1", WorkspaceID: "ws-1", TerraformVersion: "1.5.0"}},
+			2: {{WorkspaceName: "ws-page2", WorkspaceID: "ws-2", TerraformVersion: "1.6.0"}},
 		},
 	}
 
@@ -275,36 +295,10 @@ func TestWorkspaceList_Pagination(t *testing.T) {
 	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
-	for _, want := range []string{"ws-1", "ws-2"} {
-		if !strings.Contains(got, want) {
-			t.Errorf("expected %q in output, got:\n%s", want, got)
-		}
+	if !strings.Contains(got, "ws-page1") {
+		t.Errorf("expected 'ws-page1' in output, got:\n%s", got)
 	}
-}
-
-func TestWorkspaceList_Error(t *testing.T) {
-	viper.Reset()
-	viper.Set("org", "test-org")
-
-	mock := &mockWSService{
-		listErr: fmt.Errorf("api error"),
-	}
-
-	cmd := newCmdWorkspaceListWith(func() (client.WorkspaceService, error) {
-		return mock, nil
-	})
-
-	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-	cmd.SetErr(&buf)
-	cmd.SilenceUsage = true
-	cmd.SilenceErrors = true
-
-	err := cmd.Execute()
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if !strings.Contains(err.Error(), "api error") {
-		t.Errorf("expected 'api error', got: %v", err)
+	if !strings.Contains(got, "ws-page2") {
+		t.Errorf("expected 'ws-page2' in output, got:\n%s", got)
 	}
 }
