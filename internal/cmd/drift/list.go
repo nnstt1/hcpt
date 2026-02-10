@@ -66,7 +66,10 @@ func runDriftList(svc driftListService, org string, all bool) error {
 	var allItems []client.ExplorerWorkspace
 	page := 1
 	for {
-		result, err := svc.ListExplorerWorkspaces(ctx, org, driftedOnly, page)
+		result, err := svc.ListExplorerWorkspaces(ctx, org, client.ExplorerListOptions{
+			DriftedOnly: driftedOnly,
+			Page:        page,
+		})
 		if err != nil {
 			return fmt.Errorf("failed to query explorer: %w", err)
 		}

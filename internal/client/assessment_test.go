@@ -148,6 +148,11 @@ func TestParseExplorerWorkspacesResponse(t *testing.T) {
 				"type": "workspace-summaries",
 				"attributes": {
 					"workspace-name": "prod-vpc",
+					"external-id": "ws-abc123",
+					"workspace-terraform-version": "1.5.0",
+					"current-run-status": "applied",
+					"project-name": "production",
+					"workspace-updated-at": "2024-03-15T12:00:00Z",
 					"drifted": true,
 					"resources-drifted": 3,
 					"resources-undrifted": 12
@@ -157,6 +162,11 @@ func TestParseExplorerWorkspacesResponse(t *testing.T) {
 				"type": "workspace-summaries",
 				"attributes": {
 					"workspace-name": "staging",
+					"external-id": "ws-def456",
+					"workspace-terraform-version": "1.6.0",
+					"current-run-status": "planned_and_finished",
+					"project-name": "staging",
+					"workspace-updated-at": "2024-03-10T08:00:00Z",
 					"drifted": false,
 					"resources-drifted": 0,
 					"resources-undrifted": 20
@@ -182,6 +192,21 @@ func TestParseExplorerWorkspacesResponse(t *testing.T) {
 	if result.Items[0].WorkspaceName != "prod-vpc" {
 		t.Errorf("expected workspace name 'prod-vpc', got %q", result.Items[0].WorkspaceName)
 	}
+	if result.Items[0].WorkspaceID != "ws-abc123" {
+		t.Errorf("expected WorkspaceID 'ws-abc123', got %q", result.Items[0].WorkspaceID)
+	}
+	if result.Items[0].TerraformVersion != "1.5.0" {
+		t.Errorf("expected TerraformVersion '1.5.0', got %q", result.Items[0].TerraformVersion)
+	}
+	if result.Items[0].CurrentRunStatus != "applied" {
+		t.Errorf("expected CurrentRunStatus 'applied', got %q", result.Items[0].CurrentRunStatus)
+	}
+	if result.Items[0].ProjectName != "production" {
+		t.Errorf("expected ProjectName 'production', got %q", result.Items[0].ProjectName)
+	}
+	if result.Items[0].UpdatedAt != "2024-03-15T12:00:00Z" {
+		t.Errorf("expected UpdatedAt '2024-03-15T12:00:00Z', got %q", result.Items[0].UpdatedAt)
+	}
 	if !result.Items[0].Drifted {
 		t.Error("expected prod-vpc to be drifted")
 	}
@@ -190,6 +215,9 @@ func TestParseExplorerWorkspacesResponse(t *testing.T) {
 	}
 	if result.Items[1].Drifted {
 		t.Error("expected staging to not be drifted")
+	}
+	if result.Items[1].WorkspaceID != "ws-def456" {
+		t.Errorf("expected WorkspaceID 'ws-def456', got %q", result.Items[1].WorkspaceID)
 	}
 	if result.TotalPages != 2 {
 		t.Errorf("expected TotalPages=2, got %d", result.TotalPages)

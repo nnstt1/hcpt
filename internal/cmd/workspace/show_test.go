@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -13,6 +14,29 @@ import (
 
 	"github.com/nnstt1/hcpt/internal/client"
 )
+
+type mockWSService struct {
+	workspaces []*tfe.Workspace
+	workspace  *tfe.Workspace
+	listErr    error
+	readErr    error
+}
+
+func (m *mockWSService) ListWorkspaces(_ context.Context, _ string, _ *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error) {
+	if m.listErr != nil {
+		return nil, m.listErr
+	}
+	return &tfe.WorkspaceList{
+		Items: m.workspaces,
+	}, nil
+}
+
+func (m *mockWSService) ReadWorkspace(_ context.Context, _ string, _ string) (*tfe.Workspace, error) {
+	if m.readErr != nil {
+		return nil, m.readErr
+	}
+	return m.workspace, nil
+}
 
 func TestWorkspaceShow_Table(t *testing.T) {
 	viper.Reset()

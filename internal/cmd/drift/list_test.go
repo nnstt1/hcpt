@@ -19,8 +19,8 @@ type mockDriftListService struct {
 	lastPage int // track requested page
 }
 
-func (m *mockDriftListService) ListExplorerWorkspaces(_ context.Context, _ string, _ bool, page int) (*client.ExplorerWorkspaceList, error) {
-	m.lastPage = page
+func (m *mockDriftListService) ListExplorerWorkspaces(_ context.Context, _ string, opts client.ExplorerListOptions) (*client.ExplorerWorkspaceList, error) {
+	m.lastPage = opts.Page
 	if m.listErr != nil {
 		return nil, m.listErr
 	}
@@ -246,7 +246,8 @@ type mockDriftListServicePaginated struct {
 	pages map[int][]client.ExplorerWorkspace
 }
 
-func (m *mockDriftListServicePaginated) ListExplorerWorkspaces(_ context.Context, _ string, _ bool, page int) (*client.ExplorerWorkspaceList, error) {
+func (m *mockDriftListServicePaginated) ListExplorerWorkspaces(_ context.Context, _ string, opts client.ExplorerListOptions) (*client.ExplorerWorkspaceList, error) {
+	page := opts.Page
 	items := m.pages[page]
 	totalPages := len(m.pages)
 	nextPage := page + 1
