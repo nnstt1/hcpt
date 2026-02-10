@@ -20,9 +20,13 @@ type mockWSService struct {
 	workspace  *tfe.Workspace
 	listErr    error
 	readErr    error
+	listFn     func(opts *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error)
 }
 
-func (m *mockWSService) ListWorkspaces(_ context.Context, _ string, _ *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error) {
+func (m *mockWSService) ListWorkspaces(_ context.Context, _ string, opts *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error) {
+	if m.listFn != nil {
+		return m.listFn(opts)
+	}
 	if m.listErr != nil {
 		return nil, m.listErr
 	}
@@ -219,6 +223,62 @@ func TestWorkspaceList_NoOrg(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "organization is required") {
 		t.Errorf("expected 'organization is required' error, got: %v", err)
+	}
+}
+
+func TestWorkspaceList_Pagination(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+	viper.Set("org", "test-org")
+
+	mock := &mockWSService{
+		listFn: func(opts *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error) {
+			page := opts.PageNumber
+			if page == 0 {
+				page = 1
+			}
+			switch page {
+			case 1:
+				return &tfe.WorkspaceList{
+					Items: []*tfe.Workspace{
+						{Name: "ws-1", ID: "ws-1", UpdatedAt: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)},
+					},
+					Pagination: &tfe.Pagination{NextPage: 2, TotalPages: 2},
+				}, nil
+			case 2:
+				return &tfe.WorkspaceList{
+					Items: []*tfe.Workspace{
+						{Name: "ws-2", ID: "ws-2", UpdatedAt: time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC)},
+					},
+					Pagination: &tfe.Pagination{NextPage: 0, TotalPages: 2},
+				}, nil
+			default:
+				return nil, fmt.Errorf("unexpected page %d", page)
+			}
+		},
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runWorkspaceList(mock, "test-org", "")
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
+
+	for _, want := range []string{"ws-1", "ws-2"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("expected %q in output, got:\n%s", want, got)
+		}
 	}
 }
 

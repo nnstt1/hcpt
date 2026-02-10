@@ -47,14 +47,26 @@ func newCmdOrgListWith(clientFn orgListClientFactory) *cobra.Command {
 
 func runOrgList(svc client.OrganizationService) error {
 	ctx := context.Background()
-	orgList, err := svc.ListOrganizations(ctx, &tfe.OrganizationListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list organizations: %w", err)
+	opts := &tfe.OrganizationListOptions{
+		ListOptions: tfe.ListOptions{PageSize: 100},
+	}
+
+	var allItems []*tfe.Organization
+	for {
+		orgList, err := svc.ListOrganizations(ctx, opts)
+		if err != nil {
+			return fmt.Errorf("failed to list organizations: %w", err)
+		}
+		allItems = append(allItems, orgList.Items...)
+		if orgList.Pagination == nil || orgList.NextPage == 0 {
+			break
+		}
+		opts.PageNumber = orgList.NextPage
 	}
 
 	if viper.GetBool("json") {
-		items := make([]orgJSON, 0, len(orgList.Items))
-		for _, o := range orgList.Items {
+		items := make([]orgJSON, 0, len(allItems))
+		for _, o := range allItems {
 			items = append(items, orgJSON{
 				Name:      o.Name,
 				Email:     o.Email,
@@ -65,8 +77,8 @@ func runOrgList(svc client.OrganizationService) error {
 	}
 
 	headers := []string{"NAME", "EMAIL", "CREATED AT"}
-	rows := make([][]string, 0, len(orgList.Items))
-	for _, org := range orgList.Items {
+	rows := make([][]string, 0, len(allItems))
+	for _, org := range allItems {
 		rows = append(rows, []string{
 			org.Name,
 			org.Email,

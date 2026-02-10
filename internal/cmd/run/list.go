@@ -76,18 +76,28 @@ func runRunList(svc runListService, org, workspaceName string) error {
 		return fmt.Errorf("failed to read workspace %q: %w", workspaceName, err)
 	}
 
-	runList, err := svc.ListRuns(ctx, ws.ID, &tfe.RunListOptions{
+	opts := &tfe.RunListOptions{
 		ListOptions: tfe.ListOptions{
-			PageSize: 20,
+			PageSize: 100,
 		},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to list runs: %w", err)
+	}
+
+	var allItems []*tfe.Run
+	for {
+		runList, err := svc.ListRuns(ctx, ws.ID, opts)
+		if err != nil {
+			return fmt.Errorf("failed to list runs: %w", err)
+		}
+		allItems = append(allItems, runList.Items...)
+		if runList.Pagination == nil || runList.NextPage == 0 {
+			break
+		}
+		opts.PageNumber = runList.NextPage
 	}
 
 	if viper.GetBool("json") {
-		items := make([]runJSON, 0, len(runList.Items))
-		for _, r := range runList.Items {
+		items := make([]runJSON, 0, len(allItems))
+		for _, r := range allItems {
 			items = append(items, runJSON{
 				ID:         r.ID,
 				Status:     string(r.Status),
@@ -100,8 +110,8 @@ func runRunList(svc runListService, org, workspaceName string) error {
 	}
 
 	headers := []string{"ID", "STATUS", "MESSAGE", "HAS CHANGES", "CREATED AT"}
-	rows := make([][]string, 0, len(runList.Items))
-	for _, r := range runList.Items {
+	rows := make([][]string, 0, len(allItems))
+	for _, r := range allItems {
 		rows = append(rows, []string{
 			r.ID,
 			string(r.Status),

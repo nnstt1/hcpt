@@ -20,6 +20,7 @@ type mockRunListService struct {
 	listErr    error
 	run        *tfe.Run
 	readRunErr error
+	listRunFn  func(opts *tfe.RunListOptions) (*tfe.RunList, error)
 }
 
 func (m *mockRunListService) ReadWorkspace(_ context.Context, _ string, _ string) (*tfe.Workspace, error) {
@@ -33,7 +34,10 @@ func (m *mockRunListService) ListWorkspaces(_ context.Context, _ string, _ *tfe.
 	return nil, nil
 }
 
-func (m *mockRunListService) ListRuns(_ context.Context, _ string, _ *tfe.RunListOptions) (*tfe.RunList, error) {
+func (m *mockRunListService) ListRuns(_ context.Context, _ string, opts *tfe.RunListOptions) (*tfe.RunList, error) {
+	if m.listRunFn != nil {
+		return m.listRunFn(opts)
+	}
 	if m.listErr != nil {
 		return nil, m.listErr
 	}
@@ -169,6 +173,63 @@ func TestRunList_JSON(t *testing.T) {
 	for _, want := range []string{`"id": "run-123"`, `"status": "applied"`, `"has_changes": true`} {
 		if !strings.Contains(got, want) {
 			t.Errorf("expected %q in JSON output, got:\n%s", want, got)
+		}
+	}
+}
+
+func TestRunList_Pagination(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+	viper.Set("org", "test-org")
+
+	mock := &mockRunListService{
+		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		listRunFn: func(opts *tfe.RunListOptions) (*tfe.RunList, error) {
+			page := opts.PageNumber
+			if page == 0 {
+				page = 1
+			}
+			switch page {
+			case 1:
+				return &tfe.RunList{
+					Items: []*tfe.Run{
+						{ID: "run-1", Status: tfe.RunApplied, Message: "msg1", CreatedAt: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)},
+					},
+					Pagination: &tfe.Pagination{NextPage: 2, TotalPages: 2},
+				}, nil
+			case 2:
+				return &tfe.RunList{
+					Items: []*tfe.Run{
+						{ID: "run-2", Status: tfe.RunPlanned, Message: "msg2", CreatedAt: time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC)},
+					},
+					Pagination: &tfe.Pagination{NextPage: 0, TotalPages: 2},
+				}, nil
+			default:
+				return nil, fmt.Errorf("unexpected page %d", page)
+			}
+		},
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runRunList(mock, "test-org", "my-ws")
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
+
+	for _, want := range []string{"run-1", "run-2"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("expected %q in output, got:\n%s", want, got)
 		}
 	}
 }

@@ -17,6 +17,7 @@ type mockVariableListService struct {
 	variables []*tfe.Variable
 	readErr   error
 	listErr   error
+	listVarFn func(opts *tfe.VariableListOptions) (*tfe.VariableList, error)
 	createVar *tfe.Variable
 	createErr error
 	updateVar *tfe.Variable
@@ -35,7 +36,10 @@ func (m *mockVariableListService) ReadWorkspace(_ context.Context, _ string, _ s
 	return m.workspace, nil
 }
 
-func (m *mockVariableListService) ListVariables(_ context.Context, _ string, _ *tfe.VariableListOptions) (*tfe.VariableList, error) {
+func (m *mockVariableListService) ListVariables(_ context.Context, _ string, opts *tfe.VariableListOptions) (*tfe.VariableList, error) {
+	if m.listVarFn != nil {
+		return m.listVarFn(opts)
+	}
 	if m.listErr != nil {
 		return nil, m.listErr
 	}
@@ -189,6 +193,63 @@ func TestVariableList_JSON(t *testing.T) {
 	for _, want := range []string{`"key": "AWS_REGION"`, `"value": "us-east-1"`, `"category": "terraform"`} {
 		if !strings.Contains(got, want) {
 			t.Errorf("expected %q in JSON output, got:\n%s", want, got)
+		}
+	}
+}
+
+func TestVariableList_Pagination(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+	viper.Set("org", "test-org")
+
+	mock := &mockVariableListService{
+		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		listVarFn: func(opts *tfe.VariableListOptions) (*tfe.VariableList, error) {
+			page := opts.PageNumber
+			if page == 0 {
+				page = 1
+			}
+			switch page {
+			case 1:
+				return &tfe.VariableList{
+					Items: []*tfe.Variable{
+						{Key: "VAR_1", Value: "val1", Category: tfe.CategoryTerraform},
+					},
+					Pagination: &tfe.Pagination{NextPage: 2, TotalPages: 2},
+				}, nil
+			case 2:
+				return &tfe.VariableList{
+					Items: []*tfe.Variable{
+						{Key: "VAR_2", Value: "val2", Category: tfe.CategoryEnv},
+					},
+					Pagination: &tfe.Pagination{NextPage: 0, TotalPages: 2},
+				}, nil
+			default:
+				return nil, fmt.Errorf("unexpected page %d", page)
+			}
+		},
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runVariableList(mock, "test-org", "my-ws")
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
+
+	for _, want := range []string{"VAR_1", "VAR_2"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("expected %q in output, got:\n%s", want, got)
 		}
 	}
 }

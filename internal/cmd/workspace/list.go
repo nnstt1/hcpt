@@ -60,22 +60,30 @@ func runWorkspaceList(svc client.WorkspaceService, org, search string) error {
 		opts.Search = search
 	}
 
-	wsList, err := svc.ListWorkspaces(ctx, org, opts)
-	if err != nil {
-		return fmt.Errorf("failed to list workspaces: %w", err)
+	var allItems []*tfe.Workspace
+	for {
+		wsList, err := svc.ListWorkspaces(ctx, org, opts)
+		if err != nil {
+			return fmt.Errorf("failed to list workspaces: %w", err)
+		}
+		allItems = append(allItems, wsList.Items...)
+		if wsList.Pagination == nil || wsList.NextPage == 0 {
+			break
+		}
+		opts.PageNumber = wsList.NextPage
 	}
 
 	if viper.GetBool("json") {
-		items := make([]workspaceJSON, 0, len(wsList.Items))
-		for _, ws := range wsList.Items {
+		items := make([]workspaceJSON, 0, len(allItems))
+		for _, ws := range allItems {
 			items = append(items, toWorkspaceJSON(ws))
 		}
 		return output.PrintJSON(os.Stdout, items)
 	}
 
 	headers := []string{"NAME", "ID", "EXECUTION MODE", "TERRAFORM VERSION", "LOCKED", "AUTO APPLY", "UPDATED AT"}
-	rows := make([][]string, 0, len(wsList.Items))
-	for _, ws := range wsList.Items {
+	rows := make([][]string, 0, len(allItems))
+	for _, ws := range allItems {
 		rows = append(rows, []string{
 			ws.Name,
 			ws.ID,
