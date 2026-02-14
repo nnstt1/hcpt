@@ -42,6 +42,7 @@ func newCmdRunList() *cobra.Command {
 
 func newCmdRunListWith(clientFn runListClientFactory) *cobra.Command {
 	var workspaceName string
+	var status string
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -59,16 +60,17 @@ func newCmdRunListWith(clientFn runListClientFactory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return runRunList(svc, org, workspaceName)
+			return runRunList(svc, org, workspaceName, status)
 		},
 	}
 
 	cmd.Flags().StringVarP(&workspaceName, "workspace", "w", "", "workspace name (required)")
+	cmd.Flags().StringVar(&status, "status", "", "filter by run status (comma-separated, e.g. applied,errored)")
 
 	return cmd
 }
 
-func runRunList(svc runListService, org, workspaceName string) error {
+func runRunList(svc runListService, org, workspaceName, status string) error {
 	ctx := context.Background()
 
 	// Resolve workspace name to ID
@@ -83,6 +85,7 @@ func runRunList(svc runListService, org, workspaceName string) error {
 		},
 		// デフォルトでは plan_only が除外されるため、全 operation タイプを明示的に指定
 		Operation: "plan_and_apply,plan_only,refresh_only,destroy,empty_apply,save_plan",
+		Status:    status,
 	}
 
 	var allItems []*tfe.Run
