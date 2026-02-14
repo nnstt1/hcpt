@@ -99,8 +99,20 @@ hcpt drift show my-workspace --org my-org
 # List runs for a workspace
 hcpt run list --org my-org -w my-workspace
 
+# Filter by status
+hcpt run list --org my-org -w my-workspace --status applied
+
+# Filter by multiple statuses (comma-separated)
+hcpt run list --org my-org -w my-workspace --status planned,applied
+
 # Show run details
 hcpt run show run-abc123
+
+# Show latest run for a workspace
+hcpt run show --org my-org -w my-workspace
+
+# Watch a run until it completes
+hcpt run show run-abc123 --watch
 ```
 
 ### Variables

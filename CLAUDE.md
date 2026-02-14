@@ -28,8 +28,8 @@ hcpt
 ├── drift show        # 特定ワークスペースのドリフト検出詳細
 ├── workspace list    # Organization 内の Workspace 一覧を取得
 ├── workspace show    # 特定の Workspace の詳細情報を表示
-├── run list          # Workspace の Run 履歴を表示
-├── run show          # Run の詳細情報を表示
+├── run list          # Workspace の Run 履歴を表示（--status でフィルター可）
+├── run show          # Run の詳細情報を表示（--watch で完了まで監視）
 ├── variable list     # Workspace の変数一覧を表示
 ├── variable set      # 変数の作成/更新 (upsert)
 ├── variable delete   # 変数の削除

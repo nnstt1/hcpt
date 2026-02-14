@@ -99,8 +99,20 @@ hcpt drift show my-workspace --org my-org
 # Workspace の Run 履歴
 hcpt run list --org my-org -w my-workspace
 
+# ステータスでフィルター
+hcpt run list --org my-org -w my-workspace --status applied
+
+# 複数ステータスでフィルター（カンマ区切り）
+hcpt run list --org my-org -w my-workspace --status planned,applied
+
 # Run 詳細
 hcpt run show run-abc123
+
+# Workspace の最新 Run を表示
+hcpt run show --org my-org -w my-workspace
+
+# Run の完了を監視
+hcpt run show run-abc123 --watch
 ```
 
 ### Variable
