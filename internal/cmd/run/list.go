@@ -19,6 +19,7 @@ type runJSON struct {
 	ID         string    `json:"id"`
 	Status     string    `json:"status"`
 	Message    string    `json:"message"`
+	PlanOnly   bool      `json:"plan_only"`
 	HasChanges bool      `json:"has_changes"`
 	CreatedAt  time.Time `json:"created_at"`
 }
@@ -80,6 +81,8 @@ func runRunList(svc runListService, org, workspaceName string) error {
 		ListOptions: tfe.ListOptions{
 			PageSize: 100,
 		},
+		// デフォルトでは plan_only が除外されるため、全 operation タイプを明示的に指定
+		Operation: "plan_and_apply,plan_only,refresh_only,destroy,empty_apply,save_plan",
 	}
 
 	var allItems []*tfe.Run
@@ -102,6 +105,7 @@ func runRunList(svc runListService, org, workspaceName string) error {
 				ID:         r.ID,
 				Status:     string(r.Status),
 				Message:    r.Message,
+				PlanOnly:   r.PlanOnly,
 				HasChanges: r.HasChanges,
 				CreatedAt:  r.CreatedAt,
 			})
@@ -109,13 +113,14 @@ func runRunList(svc runListService, org, workspaceName string) error {
 		return output.PrintJSON(os.Stdout, items)
 	}
 
-	headers := []string{"ID", "STATUS", "MESSAGE", "HAS CHANGES", "CREATED AT"}
+	headers := []string{"ID", "STATUS", "MESSAGE", "PLAN ONLY", "HAS CHANGES", "CREATED AT"}
 	rows := make([][]string, 0, len(allItems))
 	for _, r := range allItems {
 		rows = append(rows, []string{
 			r.ID,
 			string(r.Status),
 			truncate(r.Message, 50),
+			strconv.FormatBool(r.PlanOnly),
 			strconv.FormatBool(r.HasChanges),
 			r.CreatedAt.Format("2006-01-02 15:04:05"),
 		})

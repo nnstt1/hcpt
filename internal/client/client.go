@@ -186,7 +186,9 @@ func (c *ClientWrapper) ListRuns(ctx context.Context, workspaceID string, opts *
 }
 
 func (c *ClientWrapper) ReadRun(ctx context.Context, runID string) (*tfe.Run, error) {
-	return c.client.Runs.Read(ctx, runID)
+	return c.client.Runs.ReadWithOptions(ctx, runID, &tfe.RunReadOptions{
+		Include: []tfe.RunIncludeOpt{tfe.RunPlan},
+	})
 }
 
 func (c *ClientWrapper) ListVariables(ctx context.Context, workspaceID string, opts *tfe.VariableListOptions) (*tfe.VariableList, error) {
