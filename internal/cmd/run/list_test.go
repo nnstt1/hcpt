@@ -123,7 +123,7 @@ func TestRunList_Table_Output(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runRunList(mock, "test-org", "my-ws")
+	err := runRunList(mock, "test-org", "my-ws", "")
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -165,7 +165,7 @@ func TestRunList_JSON(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runRunList(mock, "test-org", "my-ws")
+	err := runRunList(mock, "test-org", "my-ws", "")
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -222,7 +222,7 @@ func TestRunList_Pagination(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runRunList(mock, "test-org", "my-ws")
+	err := runRunList(mock, "test-org", "my-ws", "")
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -391,6 +391,79 @@ func TestRunList_WorkspaceReadError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "workspace not found") {
 		t.Errorf("expected 'workspace not found' error, got: %v", err)
+	}
+}
+
+func TestRunList_StatusFilter(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+	viper.Set("org", "test-org")
+
+	var capturedStatus string
+	mock := &mockRunListService{
+		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		listRunFn: func(opts *tfe.RunListOptions) (*tfe.RunList, error) {
+			capturedStatus = opts.Status
+			return &tfe.RunList{
+				Items: []*tfe.Run{
+					{ID: "run-123", Status: tfe.RunApplied, Message: "done", CreatedAt: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)},
+				},
+			}, nil
+		},
+	}
+
+	cmd := newCmdRunListWith(func() (runListService, error) {
+		return mock, nil
+	})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{"-w", "my-ws", "--status", "applied"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if capturedStatus != "applied" {
+		t.Errorf("expected status filter %q, got %q", "applied", capturedStatus)
+	}
+}
+
+func TestRunList_StatusFilterMultiple(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+	viper.Set("org", "test-org")
+
+	var capturedStatus string
+	mock := &mockRunListService{
+		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		listRunFn: func(opts *tfe.RunListOptions) (*tfe.RunList, error) {
+			capturedStatus = opts.Status
+			return &tfe.RunList{
+				Items: []*tfe.Run{
+					{ID: "run-123", Status: tfe.RunApplied, Message: "done", CreatedAt: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)},
+					{ID: "run-456", Status: tfe.RunErrored, Message: "failed", CreatedAt: time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC)},
+				},
+			}, nil
+		},
+	}
+
+	cmd := newCmdRunListWith(func() (runListService, error) {
+		return mock, nil
+	})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{"-w", "my-ws", "--status", "applied,errored"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if capturedStatus != "applied,errored" {
+		t.Errorf("expected status filter %q, got %q", "applied,errored", capturedStatus)
 	}
 }
 
