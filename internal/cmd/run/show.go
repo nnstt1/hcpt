@@ -43,6 +43,7 @@ func newCmdRunShow() *cobra.Command {
 
 func newCmdRunShowWith(clientFn runShowClientFactory) *cobra.Command {
 	var workspaceName string
+	var watch bool
 
 	cmd := &cobra.Command{
 		Use:   "show [run-id]",
@@ -67,16 +68,21 @@ func newCmdRunShowWith(clientFn runShowClientFactory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return runRunShow(svc, runID, org, workspaceName)
+			return runRunShow(svc, runID, org, workspaceName, watch)
 		},
 	}
 
 	cmd.Flags().StringVarP(&workspaceName, "workspace", "w", "", "workspace name (get latest run)")
+	cmd.Flags().BoolVarP(&watch, "watch", "W", false, "watch run status until completion")
 
 	return cmd
 }
 
-func runRunShow(svc runShowService, runID string, org string, workspaceName string) error {
+func runRunShow(svc runShowService, runID string, org string, workspaceName string, watch bool) error {
+	return runRunShowWithInterval(svc, runID, org, workspaceName, watch, 5*time.Second)
+}
+
+func runRunShowWithInterval(svc runShowService, runID string, org string, workspaceName string, watch bool, pollInterval time.Duration) error {
 	ctx := context.Background()
 
 	var r *tfe.Run
@@ -107,8 +113,15 @@ func runRunShow(svc runShowService, runID string, org string, workspaceName stri
 		}
 
 		r = runList.Items[0]
+		// workspace から取得した場合は run ID を保存
+		runID = r.ID
 	} else {
 		return fmt.Errorf("either run-id or --workspace is required")
+	}
+
+	// watch モードの場合
+	if watch {
+		return watchRun(ctx, svc, runID, r, pollInterval)
 	}
 
 	return displayRun(r)
@@ -148,4 +161,76 @@ func displayRun(r *tfe.Run) error {
 
 	output.PrintKeyValue(os.Stdout, pairs)
 	return nil
+}
+
+// watchRun polls the run status until it reaches a terminal state.
+func watchRun(ctx context.Context, svc runShowService, runID string, initialRun *tfe.Run, pollInterval time.Duration) error {
+	// すでに終了ステータスなら初回表示のみで終了
+	if isTerminalStatus(initialRun.Status) {
+		return displayRun(initialRun)
+	}
+
+	// JSON モード以外の場合、初回表示と区切り線
+	if !viper.GetBool("json") {
+		if err := displayRun(initialRun); err != nil {
+			return err
+		}
+		_, _ = fmt.Fprintln(os.Stdout, "---")
+	}
+
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
+	currentStatus := initialRun.Status
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			r, err := svc.ReadRun(ctx, runID)
+			if err != nil {
+				// 一時的なエラーの可能性があるため、警告を出力して継続
+				fmt.Fprintf(os.Stderr, "Warning: failed to read run: %v\n", err)
+				continue
+			}
+
+			// ステータスが変化した場合のみ出力
+			if r.Status != currentStatus {
+				if !viper.GetBool("json") {
+					_, _ = fmt.Fprintln(os.Stdout, formatStatusUpdate(time.Now(), r.Status))
+				}
+				currentStatus = r.Status
+			}
+
+			// 終了ステータスに到達したら終了
+			if isTerminalStatus(r.Status) {
+				// JSON モードの場合は最終結果を出力
+				if viper.GetBool("json") {
+					return displayRun(r)
+				}
+				return nil
+			}
+		}
+	}
+}
+
+// isTerminalStatus returns true if the status is a terminal state.
+func isTerminalStatus(status tfe.RunStatus) bool {
+	switch status {
+	case tfe.RunApplied,
+		tfe.RunErrored,
+		tfe.RunCanceled,
+		tfe.RunDiscarded,
+		tfe.RunPlannedAndFinished,
+		tfe.RunPlannedAndSaved:
+		return true
+	default:
+		return false
+	}
+}
+
+// formatStatusUpdate formats a status update line with timestamp.
+func formatStatusUpdate(timestamp time.Time, status tfe.RunStatus) string {
+	return fmt.Sprintf("%s  Status: %s", timestamp.Format("2006-01-02 15:04:05"), status)
 }

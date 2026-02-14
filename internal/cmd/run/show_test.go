@@ -98,7 +98,7 @@ func TestRunShow_Table_Output(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runRunShow(mock, "run-abc123", "", "")
+	err := runRunShow(mock, "run-abc123", "", "", false)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -140,7 +140,7 @@ func TestRunShow_Table_WithTimestamps(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runRunShow(mock, "run-abc123", "", "")
+	err := runRunShow(mock, "run-abc123", "", "", false)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -178,7 +178,7 @@ func TestRunShow_JSON(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runRunShow(mock, "run-abc123", "", "")
+	err := runRunShow(mock, "run-abc123", "", "", false)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -299,7 +299,7 @@ func TestRunShow_WithWorkspace_Table(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runRunShow(mock, "", "test-org", "production")
+	err := runRunShow(mock, "", "test-org", "production", false)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -348,7 +348,7 @@ func TestRunShow_WithWorkspace_JSON(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runRunShow(mock, "", "test-org", "production")
+	err := runRunShow(mock, "", "test-org", "production", false)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -483,4 +483,386 @@ func TestRunShow_WithWorkspace_ListRunsError(t *testing.T) {
 	if !strings.Contains(err.Error(), "failed to list runs") {
 		t.Errorf("expected 'failed to list runs' error, got: %v", err)
 	}
+}
+
+// mockRunShowServiceWithWatch supports simulating status changes over time
+type mockRunShowServiceWithWatch struct {
+	workspace    *tfe.Workspace
+	workspaceErr error
+	runList      *tfe.RunList
+	runListErr   error
+	runs         []*tfe.Run // runs to return in sequence
+	readCount    int        // number of times ReadRun has been called
+	readErr      error      // error to return on ReadRun
+}
+
+func (m *mockRunShowServiceWithWatch) ListRuns(_ context.Context, _ string, _ *tfe.RunListOptions) (*tfe.RunList, error) {
+	if m.runListErr != nil {
+		return nil, m.runListErr
+	}
+	return m.runList, nil
+}
+
+func (m *mockRunShowServiceWithWatch) ReadRun(_ context.Context, _ string) (*tfe.Run, error) {
+	if m.readErr != nil {
+		return nil, m.readErr
+	}
+	if m.readCount >= len(m.runs) {
+		// Return the last run if we've exhausted the sequence
+		return m.runs[len(m.runs)-1], nil
+	}
+	r := m.runs[m.readCount]
+	m.readCount++
+	return r, nil
+}
+
+func (m *mockRunShowServiceWithWatch) ListWorkspaces(_ context.Context, _ string, _ *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error) {
+	return nil, nil
+}
+
+func (m *mockRunShowServiceWithWatch) ReadWorkspace(_ context.Context, _, _ string) (*tfe.Workspace, error) {
+	if m.workspaceErr != nil {
+		return nil, m.workspaceErr
+	}
+	return m.workspace, nil
+}
+
+func TestIsTerminalStatus(t *testing.T) {
+	tests := []struct {
+		status   tfe.RunStatus
+		expected bool
+	}{
+		{tfe.RunApplied, true},
+		{tfe.RunErrored, true},
+		{tfe.RunCanceled, true},
+		{tfe.RunDiscarded, true},
+		{tfe.RunPlannedAndFinished, true},
+		{tfe.RunPlannedAndSaved, true},
+		{tfe.RunPending, false},
+		{tfe.RunPlanning, false},
+		{tfe.RunApplying, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.status), func(t *testing.T) {
+			got := isTerminalStatus(tt.status)
+			if got != tt.expected {
+				t.Errorf("isTerminalStatus(%v) = %v, want %v", tt.status, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestFormatStatusUpdate(t *testing.T) {
+	ts := time.Date(2026, 2, 14, 10, 30, 45, 0, time.UTC)
+	got := formatStatusUpdate(ts, tfe.RunApplying)
+	want := "2026-02-14 10:30:45  Status: applying"
+	if got != want {
+		t.Errorf("formatStatusUpdate() = %q, want %q", got, want)
+	}
+}
+
+func TestRunShow_Watch_StatusChange(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+
+	mock := &mockRunShowServiceWithWatch{
+		runs: []*tfe.Run{
+			{
+				ID:               "run-watch123",
+				Status:           tfe.RunPlanning,
+				Message:          "Planning",
+				TerraformVersion: "1.5.0",
+				HasChanges:       true,
+				IsDestroy:        false,
+				CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
+			},
+			{
+				ID:               "run-watch123",
+				Status:           tfe.RunPlanning,
+				Message:          "Planning",
+				TerraformVersion: "1.5.0",
+				HasChanges:       true,
+				IsDestroy:        false,
+				CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
+			},
+			{
+				ID:               "run-watch123",
+				Status:           tfe.RunApplying,
+				Message:          "Planning",
+				TerraformVersion: "1.5.0",
+				HasChanges:       true,
+				IsDestroy:        false,
+				CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
+			},
+			{
+				ID:               "run-watch123",
+				Status:           tfe.RunApplied,
+				Message:          "Planning",
+				TerraformVersion: "1.5.0",
+				HasChanges:       true,
+				IsDestroy:        false,
+				CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
+			},
+		},
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runRunShowWithInterval(mock, "run-watch123", "", "", true, 10*time.Millisecond)
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
+
+	// 初回表示を確認
+	if !strings.Contains(got, "ID:") || !strings.Contains(got, "run-watch123") {
+		t.Errorf("expected initial display in output, got:\n%s", got)
+	}
+
+	// 区切り線を確認
+	if !strings.Contains(got, "---") {
+		t.Errorf("expected separator line in output, got:\n%s", got)
+	}
+
+	// ステータス変化を確認（planning は初期状態なので出力されない、applying と applied が出力される）
+	if !strings.Contains(got, "Status: applying") {
+		t.Errorf("expected 'Status: applying' in output, got:\n%s", got)
+	}
+	if !strings.Contains(got, "Status: applied") {
+		t.Errorf("expected 'Status: applied' in output, got:\n%s", got)
+	}
+}
+
+func TestRunShow_Watch_JSON(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", true)
+
+	mock := &mockRunShowServiceWithWatch{
+		runs: []*tfe.Run{
+			{
+				ID:               "run-watch-json",
+				Status:           tfe.RunPlanning,
+				Message:          "Planning",
+				TerraformVersion: "1.5.0",
+				HasChanges:       true,
+				IsDestroy:        false,
+				CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
+			},
+			{
+				ID:               "run-watch-json",
+				Status:           tfe.RunApplied,
+				Message:          "Applied",
+				TerraformVersion: "1.5.0",
+				HasChanges:       true,
+				IsDestroy:        false,
+				CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
+			},
+		},
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runRunShowWithInterval(mock, "run-watch-json", "", "", true, 10*time.Millisecond)
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
+
+	// JSON モードでは最終結果のみ出力される
+	if !strings.Contains(got, `"id": "run-watch-json"`) {
+		t.Errorf("expected JSON output with run ID, got:\n%s", got)
+	}
+	if !strings.Contains(got, `"status": "applied"`) {
+		t.Errorf("expected final status 'applied' in JSON output, got:\n%s", got)
+	}
+
+	// JSON モードでは区切り線やステータス更新が出力されないことを確認
+	if strings.Contains(got, "---") {
+		t.Errorf("unexpected separator line in JSON output, got:\n%s", got)
+	}
+	if strings.Contains(got, "Status: planning") {
+		t.Errorf("unexpected status update in JSON output, got:\n%s", got)
+	}
+}
+
+func TestRunShow_Watch_AlreadyTerminal(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+
+	mock := &mockRunShowServiceWithWatch{
+		runs: []*tfe.Run{
+			{
+				ID:               "run-terminal",
+				Status:           tfe.RunApplied,
+				Message:          "Already applied",
+				TerraformVersion: "1.5.0",
+				HasChanges:       true,
+				IsDestroy:        false,
+				CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
+			},
+		},
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runRunShowWithInterval(mock, "run-terminal", "", "", true, 10*time.Millisecond)
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
+
+	// 初回表示のみ出力される
+	if !strings.Contains(got, "ID:") || !strings.Contains(got, "run-terminal") {
+		t.Errorf("expected initial display in output, got:\n%s", got)
+	}
+
+	// 区切り線は出力されない（すでに終了ステータス）
+	if strings.Contains(got, "---") {
+		t.Errorf("unexpected separator line in output (run already terminal), got:\n%s", got)
+	}
+
+	// ReadRun が呼ばれていないことを確認
+	if mock.readCount > 1 {
+		t.Errorf("expected 1 ReadRun call for terminal run, got %d", mock.readCount)
+	}
+}
+
+func TestRunShow_Watch_APIError(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+
+	mock := &mockRunShowServiceWithWatch{
+		runs: []*tfe.Run{
+			{
+				ID:               "run-error",
+				Status:           tfe.RunPlanning,
+				Message:          "Planning",
+				TerraformVersion: "1.5.0",
+				HasChanges:       true,
+				IsDestroy:        false,
+				CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
+			},
+			// 2回目以降はエラー、その後成功
+			{
+				ID:               "run-error",
+				Status:           tfe.RunPlanning,
+				Message:          "Planning",
+				TerraformVersion: "1.5.0",
+				HasChanges:       true,
+				IsDestroy:        false,
+				CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
+			},
+			{
+				ID:               "run-error",
+				Status:           tfe.RunApplied,
+				Message:          "Applied",
+				TerraformVersion: "1.5.0",
+				HasChanges:       true,
+				IsDestroy:        false,
+				CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
+			},
+		},
+		readErr: nil, // エラーをシミュレートするには別のモックが必要
+	}
+
+	oldStdout := os.Stdout
+	stdoutR, stdoutW, _ := os.Pipe()
+	os.Stdout = stdoutW
+
+	oldStderr := os.Stderr
+	stderrR, stderrW, _ := os.Pipe()
+	os.Stderr = stderrW
+
+	// エラー付きのモックに切り替え
+	mockWithError := &mockRunShowServiceWithWatchError{
+		initialRun: mock.runs[0],
+		finalRun:   mock.runs[2],
+	}
+
+	err := runRunShowWithInterval(mockWithError, "run-error", "", "", true, 10*time.Millisecond)
+
+	_ = stdoutW.Close()
+	_ = stderrW.Close()
+	os.Stdout = oldStdout
+	os.Stderr = oldStderr
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var stdoutBuf bytes.Buffer
+	_, _ = stdoutBuf.ReadFrom(stdoutR)
+	gotStdout := stdoutBuf.String()
+
+	var stderrBuf bytes.Buffer
+	_, _ = stderrBuf.ReadFrom(stderrR)
+	gotStderr := stderrBuf.String()
+
+	// 警告メッセージが stderr に出力されることを確認
+	if !strings.Contains(gotStderr, "Warning: failed to read run") {
+		t.Errorf("expected warning message in stderr, got:\n%s", gotStderr)
+	}
+
+	// 最終的に成功して applied ステータスが表示されることを確認
+	if !strings.Contains(gotStdout, "Status: applied") {
+		t.Errorf("expected final status in stdout, got:\n%s", gotStdout)
+	}
+}
+
+// mockRunShowServiceWithWatchError simulates API error on second call
+type mockRunShowServiceWithWatchError struct {
+	initialRun *tfe.Run
+	finalRun   *tfe.Run
+	callCount  int
+}
+
+func (m *mockRunShowServiceWithWatchError) ListRuns(_ context.Context, _ string, _ *tfe.RunListOptions) (*tfe.RunList, error) {
+	return nil, nil
+}
+
+func (m *mockRunShowServiceWithWatchError) ReadRun(_ context.Context, _ string) (*tfe.Run, error) {
+	m.callCount++
+	if m.callCount == 1 {
+		return m.initialRun, nil
+	}
+	if m.callCount == 2 {
+		return nil, fmt.Errorf("temporary API error")
+	}
+	return m.finalRun, nil
+}
+
+func (m *mockRunShowServiceWithWatchError) ListWorkspaces(_ context.Context, _ string, _ *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error) {
+	return nil, nil
+}
+
+func (m *mockRunShowServiceWithWatchError) ReadWorkspace(_ context.Context, _, _ string) (*tfe.Workspace, error) {
+	return nil, nil
 }
