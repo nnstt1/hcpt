@@ -418,7 +418,7 @@ func TestRunShow_WithWorkspace_JSON(t *testing.T) {
 			ID:   "ws-123",
 			Name: "production",
 		},
-		run:     latestRun,
+		run: latestRun,
 		runList: &tfe.RunList{
 			Items: []*tfe.Run{latestRun},
 		},
