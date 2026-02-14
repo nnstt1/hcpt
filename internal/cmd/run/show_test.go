@@ -91,6 +91,11 @@ func TestRunShow_Table_Output(t *testing.T) {
 			HasChanges:       true,
 			IsDestroy:        false,
 			CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
+			Plan: &tfe.Plan{
+				ResourceAdditions:    2,
+				ResourceChanges:      1,
+				ResourceDestructions: 3,
+			},
 		},
 	}
 
@@ -111,10 +116,13 @@ func TestRunShow_Table_Output(t *testing.T) {
 	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
-	for _, want := range []string{"ID:", "run-abc123", "Status:", "applied", "Message:", "Apply complete", "Terraform Version:", "1.5.0", "Has Changes:", "true", "Is Destroy:", "false"} {
+	for _, want := range []string{"ID:", "run-abc123", "Status:", "applied", "Message:", "Apply complete", "Terraform Version:", "1.5.0", "Has Changes:", "true", "Plan Changes:", "+2 ~1 -3"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("expected %q in output, got:\n%s", want, got)
 		}
+	}
+	if strings.Contains(got, "Is Destroy:") {
+		t.Errorf("expected 'Is Destroy' to be removed, got:\n%s", got)
 	}
 }
 
@@ -131,6 +139,7 @@ func TestRunShow_Table_WithTimestamps(t *testing.T) {
 			HasChanges:       true,
 			CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
 			StatusTimestamps: &tfe.RunStatusTimestamps{
+				PlannedAt: time.Date(2024, 3, 15, 12, 3, 0, 0, time.UTC),
 				AppliedAt: time.Date(2024, 3, 15, 12, 5, 0, 0, time.UTC),
 			},
 		},
@@ -153,8 +162,59 @@ func TestRunShow_Table_WithTimestamps(t *testing.T) {
 	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
+	if !strings.Contains(got, "Planned At:") {
+		t.Errorf("expected 'Planned At:' in output, got:\n%s", got)
+	}
 	if !strings.Contains(got, "Applied At:") {
 		t.Errorf("expected 'Applied At:' in output, got:\n%s", got)
+	}
+}
+
+func TestRunShow_Table_NonTerminalStatus(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+
+	mock := &mockRunShowService{
+		run: &tfe.Run{
+			ID:               "run-planning",
+			Status:           tfe.RunPlanning,
+			Message:          "Triggered via UI",
+			TerraformVersion: "1.5.0",
+			HasChanges:       false,
+			IsDestroy:        false,
+			CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
+		},
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runRunShow(mock, "run-planning", "", "", false)
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
+
+	// 非終了ステータスでは Has Changes と Plan Changes が "-" で表示される
+	for _, want := range []string{"Has Changes:", "Plan Changes:"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("expected %q in output, got:\n%s", want, got)
+		}
+	}
+	// true/false が表示されないことを確認
+	if strings.Contains(got, "Has Changes:        false") || strings.Contains(got, "Has Changes:        true") {
+		t.Errorf("expected Has Changes to be '-' for non-terminal status, got:\n%s", got)
+	}
+	if strings.Contains(got, "Is Destroy:") {
+		t.Errorf("expected 'Is Destroy' to be removed, got:\n%s", got)
 	}
 }
 
@@ -171,6 +231,15 @@ func TestRunShow_JSON(t *testing.T) {
 			HasChanges:       true,
 			IsDestroy:        false,
 			CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
+			Plan: &tfe.Plan{
+				ResourceAdditions:    1,
+				ResourceChanges:      2,
+				ResourceDestructions: 0,
+			},
+			StatusTimestamps: &tfe.RunStatusTimestamps{
+				PlannedAt: time.Date(2024, 3, 15, 12, 2, 0, 0, time.UTC),
+				AppliedAt: time.Date(2024, 3, 15, 12, 5, 0, 0, time.UTC),
+			},
 		},
 	}
 
@@ -191,10 +260,14 @@ func TestRunShow_JSON(t *testing.T) {
 	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
-	for _, want := range []string{`"id": "run-abc123"`, `"status": "applied"`, `"has_changes": true`, `"is_destroy": false`} {
+	for _, want := range []string{`"id": "run-abc123"`, `"status": "applied"`, `"has_changes": true`, `"resource_additions": 1`, `"resource_changes": 2`, `"resource_destructions": 0`, `"planned_at":`, `"applied_at":`} {
 		if !strings.Contains(got, want) {
 			t.Errorf("expected %q in JSON output, got:\n%s", want, got)
 		}
+	}
+	// タイムスタンプがない場合は省略されることを確認するため、is_destroy が含まれないことを確認
+	if strings.Contains(got, "is_destroy") {
+		t.Errorf("expected 'is_destroy' to be removed from JSON, got:\n%s", got)
 	}
 }
 
@@ -275,23 +348,29 @@ func TestRunShow_WithWorkspace_Table(t *testing.T) {
 	viper.Set("json", false)
 	viper.Set("org", "test-org")
 
+	latestRun := &tfe.Run{
+		ID:               "run-latest",
+		Status:           tfe.RunApplied,
+		Message:          "Latest run",
+		TerraformVersion: "1.5.0",
+		HasChanges:       true,
+		IsDestroy:        false,
+		CreatedAt:        time.Date(2024, 3, 16, 10, 0, 0, 0, time.UTC),
+		Plan: &tfe.Plan{
+			ResourceAdditions:    1,
+			ResourceChanges:      0,
+			ResourceDestructions: 2,
+		},
+	}
+
 	mock := &mockRunShowService{
 		workspace: &tfe.Workspace{
 			ID:   "ws-123",
 			Name: "production",
 		},
+		run: latestRun,
 		runList: &tfe.RunList{
-			Items: []*tfe.Run{
-				{
-					ID:               "run-latest",
-					Status:           tfe.RunApplied,
-					Message:          "Latest run",
-					TerraformVersion: "1.5.0",
-					HasChanges:       true,
-					IsDestroy:        false,
-					CreatedAt:        time.Date(2024, 3, 16, 10, 0, 0, 0, time.UTC),
-				},
-			},
+			Items: []*tfe.Run{latestRun},
 		},
 	}
 
@@ -324,23 +403,24 @@ func TestRunShow_WithWorkspace_JSON(t *testing.T) {
 	viper.Set("json", true)
 	viper.Set("org", "test-org")
 
+	latestRun := &tfe.Run{
+		ID:               "run-latest",
+		Status:           tfe.RunApplied,
+		Message:          "Latest run",
+		TerraformVersion: "1.5.0",
+		HasChanges:       true,
+		IsDestroy:        false,
+		CreatedAt:        time.Date(2024, 3, 16, 10, 0, 0, 0, time.UTC),
+	}
+
 	mock := &mockRunShowService{
 		workspace: &tfe.Workspace{
 			ID:   "ws-123",
 			Name: "production",
 		},
+		run:     latestRun,
 		runList: &tfe.RunList{
-			Items: []*tfe.Run{
-				{
-					ID:               "run-latest",
-					Status:           tfe.RunApplied,
-					Message:          "Latest run",
-					TerraformVersion: "1.5.0",
-					HasChanges:       true,
-					IsDestroy:        false,
-					CreatedAt:        time.Date(2024, 3, 16, 10, 0, 0, 0, time.UTC),
-				},
-			},
+			Items: []*tfe.Run{latestRun},
 		},
 	}
 
@@ -603,6 +683,11 @@ func TestRunShow_Watch_StatusChange(t *testing.T) {
 				HasChanges:       true,
 				IsDestroy:        false,
 				CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
+				Plan: &tfe.Plan{
+					ResourceAdditions:    1,
+					ResourceChanges:      2,
+					ResourceDestructions: 3,
+				},
 			},
 		},
 	}
@@ -634,12 +719,23 @@ func TestRunShow_Watch_StatusChange(t *testing.T) {
 		t.Errorf("expected separator line in output, got:\n%s", got)
 	}
 
-	// ステータス変化を確認（planning は初期状態なので出力されない、applying と applied が出力される）
+	// ポーリングごとにステータスが出力されることを確認
+	if !strings.Contains(got, "Status: planning") {
+		t.Errorf("expected 'Status: planning' in output, got:\n%s", got)
+	}
 	if !strings.Contains(got, "Status: applying") {
 		t.Errorf("expected 'Status: applying' in output, got:\n%s", got)
 	}
 	if !strings.Contains(got, "Status: applied") {
 		t.Errorf("expected 'Status: applied' in output, got:\n%s", got)
+	}
+
+	// 終了時に詳細情報が再表示されることを確認
+	if !strings.Contains(got, "Plan Changes:       +1 ~2 -3") {
+		t.Errorf("expected final Plan Changes in output, got:\n%s", got)
+	}
+	if !strings.Contains(got, "Has Changes:        true") {
+		t.Errorf("expected final Has Changes in output, got:\n%s", got)
 	}
 }
 

@@ -75,6 +75,14 @@ func TestRunList_Table(t *testing.T) {
 				HasChanges: false,
 				CreatedAt:  time.Date(2024, 3, 14, 10, 0, 0, 0, time.UTC),
 			},
+			{
+				ID:         "run-789",
+				Status:     tfe.RunPlannedAndFinished,
+				Message:    "Plan only run",
+				PlanOnly:   true,
+				HasChanges: false,
+				CreatedAt:  time.Date(2024, 3, 13, 8, 0, 0, 0, time.UTC),
+			},
 		},
 	}
 
@@ -128,7 +136,7 @@ func TestRunList_Table_Output(t *testing.T) {
 	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
-	for _, want := range []string{"ID", "STATUS", "run-123", "applied", "Apply complete", "true", "2024-03-15 12:00:00"} {
+	for _, want := range []string{"ID", "STATUS", "PLAN ONLY", "run-123", "applied", "Apply complete", "false", "true", "2024-03-15 12:00:00"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("expected %q in output, got:\n%s", want, got)
 		}
@@ -170,7 +178,7 @@ func TestRunList_JSON(t *testing.T) {
 	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
-	for _, want := range []string{`"id": "run-123"`, `"status": "applied"`, `"has_changes": true`} {
+	for _, want := range []string{`"id": "run-123"`, `"status": "applied"`, `"plan_only": false`, `"has_changes": true`} {
 		if !strings.Contains(got, want) {
 			t.Errorf("expected %q in JSON output, got:\n%s", want, got)
 		}
