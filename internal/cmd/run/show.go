@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"strconv"
 	"time"
 
@@ -83,7 +84,8 @@ func runRunShow(svc runShowService, runID string, org string, workspaceName stri
 }
 
 func runRunShowWithInterval(svc runShowService, runID string, org string, workspaceName string, watch bool, pollInterval time.Duration) error {
-	ctx := context.Background()
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
 
 	var r *tfe.Run
 	var err error
@@ -186,7 +188,7 @@ func watchRun(ctx context.Context, svc runShowService, runID string, initialRun 
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return nil
 		case <-ticker.C:
 			r, err := svc.ReadRun(ctx, runID)
 			if err != nil {
