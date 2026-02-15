@@ -25,9 +25,10 @@ func newCmdWorkspaceShow() *cobra.Command {
 
 func newCmdWorkspaceShowWith(clientFn wsShowClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "show <name>",
-		Short: "Show workspace details",
-		Args:  cobra.ExactArgs(1),
+		Use:          "show <name>",
+		Short:        "Show workspace details",
+		Args:         cobra.ExactArgs(1),
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			org := viper.GetString("org")
 			if org == "" {

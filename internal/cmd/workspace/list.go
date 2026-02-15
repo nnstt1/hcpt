@@ -26,8 +26,9 @@ func newCmdWorkspaceListWith(clientFn wsListClientFactory) *cobra.Command {
 	var search string
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List workspaces in an organization",
+		Use:          "list",
+		Short:        "List workspaces in an organization",
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			org := viper.GetString("org")
 			if org == "" {

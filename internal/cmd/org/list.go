@@ -32,8 +32,9 @@ func newCmdOrgList() *cobra.Command {
 
 func newCmdOrgListWith(clientFn orgListClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List organizations",
+		Use:          "list",
+		Short:        "List organizations",
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			svc, err := clientFn()
 			if err != nil {

@@ -52,8 +52,9 @@ func newCmdOrgShow() *cobra.Command {
 
 func newCmdOrgShowWith(clientFn orgShowClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "show",
-		Short: "Show organization details",
+		Use:          "show",
+		Short:        "Show organization details",
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			org := viper.GetString("org")
 			if org == "" {
