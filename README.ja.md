@@ -113,6 +113,15 @@ hcpt run show --org my-org -w my-workspace
 
 # Run の完了を監視
 hcpt run show run-abc123 --watch
+
+# GitHub PR から Run を表示
+hcpt run show --pr 42 --repo owner/repo
+
+# GitHub PR から Run を監視
+hcpt run show --pr 42 --repo owner/repo --watch
+
+# GitHub PR から Run を表示（monorepo で複数ワークスペースがある場合）
+hcpt run show --pr 42 --repo owner/repo -w my-workspace
 ```
 
 ### Variable

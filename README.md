@@ -113,6 +113,15 @@ hcpt run show --org my-org -w my-workspace
 
 # Watch a run until it completes
 hcpt run show run-abc123 --watch
+
+# Show run from GitHub PR
+hcpt run show --pr 42 --repo owner/repo
+
+# Watch run from GitHub PR
+hcpt run show --pr 42 --repo owner/repo --watch
+
+# Show run from GitHub PR (specific workspace in monorepo)
+hcpt run show --pr 42 --repo owner/repo -w my-workspace
 ```
 
 ### Variables

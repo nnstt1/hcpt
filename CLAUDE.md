@@ -12,7 +12,9 @@ HCP Terraform の設定やワークスペース情報を取得する CLI ツー�
 - **モジュール名**: `github.com/nnstt1/hcpt`
 - **CLI フレームワーク**: [Cobra](https://github.com/spf13/cobra)
 - **設定管理**: [Viper](https://github.com/spf13/viper)
-- **API クライアント**: [go-tfe](https://github.com/hashicorp/go-tfe) (HCP Terraform / Terraform Enterprise 公式 Go クライアント)
+- **API クライアント**:
+  - [go-tfe](https://github.com/hashicorp/go-tfe) (HCP Terraform / Terraform Enterprise 公式 Go クライアント)
+  - [go-github](https://github.com/google/go-github) (GitHub API v3 クライアント)
 - **Linter**: golangci-lint
 - **リリース**: GoReleaser
 - **CI**: GitHub Actions
@@ -47,6 +49,13 @@ hcpt
 
 - 環境変数 `TFE_TOKEN` または設定ファイル `~/.hcpt.yaml` から API トークンを読み込み
 - Viper で環境変数と設定ファイルの優先順位を管理（環境変数 > 設定ファイル）
+
+## GitHub 連携
+
+- `run show` コマンドに `--pr` と `--repo` フラグを追加
+- GitHub PR の commit status から HCP Terraform の run-id を自動取得
+- トークン解決順序: `gh auth token` → `GITHUB_TOKEN` 環境変数 → `~/.hcpt.yaml` の `github-token`
+- 複数ワークスペースの場合は `--workspace` で特定
 
 ## Git ブランチ運用
 
