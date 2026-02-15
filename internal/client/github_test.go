@@ -65,3 +65,81 @@ func TestGetRunIDFromPR(t *testing.T) {
 		})
 	}
 }
+
+// TestParseGitHubRepository tests the parseGitHubRepository function.
+func TestParseGitHubRepository(t *testing.T) {
+	tests := []struct {
+		name         string
+		remoteURL    string
+		expectedRepo string
+		expectError  bool
+	}{
+		{
+			name:         "SSH format with .git",
+			remoteURL:    "git@github.com:nnstt1/hcpt.git",
+			expectedRepo: "nnstt1/hcpt",
+			expectError:  false,
+		},
+		{
+			name:         "SSH format without .git",
+			remoteURL:    "git@github.com:owner/repo",
+			expectedRepo: "owner/repo",
+			expectError:  false,
+		},
+		{
+			name:         "HTTPS format with .git",
+			remoteURL:    "https://github.com/nnstt1/hcpt.git",
+			expectedRepo: "nnstt1/hcpt",
+			expectError:  false,
+		},
+		{
+			name:         "HTTPS format without .git",
+			remoteURL:    "https://github.com/owner/repo",
+			expectedRepo: "owner/repo",
+			expectError:  false,
+		},
+		{
+			name:         "GitLab SSH",
+			remoteURL:    "git@gitlab.com:owner/repo.git",
+			expectedRepo: "",
+			expectError:  true,
+		},
+		{
+			name:         "GitLab HTTPS",
+			remoteURL:    "https://gitlab.com/owner/repo.git",
+			expectedRepo: "",
+			expectError:  true,
+		},
+		{
+			name:         "Bitbucket SSH",
+			remoteURL:    "git@bitbucket.org:owner/repo.git",
+			expectedRepo: "",
+			expectError:  true,
+		},
+		{
+			name:         "invalid format",
+			remoteURL:    "not-a-valid-url",
+			expectedRepo: "",
+			expectError:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo, err := parseGitHubRepository(tt.remoteURL)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+				if repo != tt.expectedRepo {
+					t.Errorf("expected repo %q, got %q", tt.expectedRepo, repo)
+				}
+			}
+		})
+	}
+}

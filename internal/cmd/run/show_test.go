@@ -990,29 +990,6 @@ func (m *mockRunShowServiceWithWatchError) ReadPlanJSONOutput(_ context.Context,
 	return nil, fmt.Errorf("ReadPlanJSONOutput not implemented in mockRunShowServiceWithWatchError")
 }
 
-func TestRunShow_WithPR_MissingRepo(t *testing.T) {
-	viper.Reset()
-
-	cmd := newCmdRunShowWith(func() (runShowService, error) {
-		return &mockRunShowService{}, nil
-	})
-
-	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-	cmd.SetErr(&buf)
-	cmd.SilenceUsage = true
-	cmd.SilenceErrors = true
-	cmd.SetArgs([]string{"--pr", "42"})
-
-	err := cmd.Execute()
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if !strings.Contains(err.Error(), "--repo is required when using --pr") {
-		t.Errorf("expected '--repo is required' error, got: %v", err)
-	}
-}
-
 func TestRunShow_WithPR_InvalidRepoFormat(t *testing.T) {
 	viper.Reset()
 

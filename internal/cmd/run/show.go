@@ -91,7 +91,12 @@ func newCmdRunShowWith(clientFn runShowClientFactory) *cobra.Command {
 			}
 
 			if prNumber > 0 && repoFullName == "" {
-				return fmt.Errorf("--repo is required when using --pr")
+				// Try to auto-detect repository from Git remote
+				detectedRepo, err := client.DetectGitHubRepository()
+				if err != nil {
+					return err
+				}
+				repoFullName = detectedRepo
 			}
 
 			if repoFullName != "" && !strings.Contains(repoFullName, "/") {
