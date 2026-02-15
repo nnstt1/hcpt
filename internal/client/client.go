@@ -34,6 +34,11 @@ type RunService interface {
 	ReadRun(ctx context.Context, runID string) (*tfe.Run, error)
 }
 
+// PlanService provides operations on HCP Terraform plans.
+type PlanService interface {
+	ReadPlanJSONOutput(ctx context.Context, planID string) ([]byte, error)
+}
+
 // VariableService provides operations on HCP Terraform workspace variables.
 type VariableService interface {
 	ListVariables(ctx context.Context, workspaceID string, opts *tfe.VariableListOptions) (*tfe.VariableList, error)
@@ -189,6 +194,11 @@ func (c *ClientWrapper) ReadRun(ctx context.Context, runID string) (*tfe.Run, er
 	return c.client.Runs.ReadWithOptions(ctx, runID, &tfe.RunReadOptions{
 		Include: []tfe.RunIncludeOpt{tfe.RunPlan},
 	})
+}
+
+// ReadPlanJSONOutput reads the JSON output of a plan.
+func (c *ClientWrapper) ReadPlanJSONOutput(ctx context.Context, planID string) ([]byte, error) {
+	return c.client.Plans.ReadJSONOutput(ctx, planID)
 }
 
 func (c *ClientWrapper) ListVariables(ctx context.Context, workspaceID string, opts *tfe.VariableListOptions) (*tfe.VariableList, error) {
