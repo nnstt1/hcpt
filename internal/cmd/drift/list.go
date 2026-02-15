@@ -31,8 +31,9 @@ func newCmdDriftListWith(clientFn driftListClientFactory) *cobra.Command {
 	var all bool
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List workspaces with drift status",
+		Use:          "list",
+		Short:        "List workspaces with drift status",
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			org := viper.GetString("org")
 			if org == "" {

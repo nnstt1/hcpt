@@ -18,8 +18,9 @@ type configJSON struct {
 
 func newCmdConfigList() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List all configuration values",
+		Use:          "list",
+		Short:        "List all configuration values",
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConfigList()
 		},

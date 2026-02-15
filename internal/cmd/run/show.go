@@ -83,7 +83,7 @@ func newCmdRunShowWith(clientFn runShowClientFactory) *cobra.Command {
 			}
 
 			if runID == "" && prNumber == 0 && workspaceName == "" {
-				return fmt.Errorf("either run-id, --pr, or --workspace is required")
+				return fmt.Errorf("either run-id, --pr, or --workspace/-w is required")
 			}
 
 			svc, err := clientFn()
@@ -164,7 +164,7 @@ func runRunShowWithInterval(svc runShowService, runID string, org string, worksp
 			return fmt.Errorf("failed to read run %q: %w", runID, err)
 		}
 	} else {
-		return fmt.Errorf("either run-id or --workspace is required")
+		return fmt.Errorf("either run-id or --workspace/-w is required")
 	}
 
 	// watch モードの場合

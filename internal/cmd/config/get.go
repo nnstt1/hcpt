@@ -17,7 +17,8 @@ Available keys:
   org       HCP Terraform organization name
   token     API token (masked for security)
   address   HCP Terraform API address`,
-		Args: cobra.ExactArgs(1),
+		Args:         cobra.ExactArgs(1),
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConfigGet(args[0])
 		},

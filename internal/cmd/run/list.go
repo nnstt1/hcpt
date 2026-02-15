@@ -54,7 +54,7 @@ func newCmdRunListWith(clientFn runListClientFactory) *cobra.Command {
 				return fmt.Errorf("organization is required: use --org flag, TFE_ORG env, or set 'org' in config file")
 			}
 			if workspaceName == "" {
-				return fmt.Errorf("workspace is required: use --workspace (-w) flag")
+				return fmt.Errorf("workspace is required: use --workspace/-w flag")
 			}
 
 			svc, err := clientFn()

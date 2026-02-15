@@ -31,8 +31,9 @@ func newCmdProjectList() *cobra.Command {
 
 func newCmdProjectListWith(clientFn projectListClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List projects in an organization",
+		Use:          "list",
+		Short:        "List projects in an organization",
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			org := viper.GetString("org")
 			if org == "" {

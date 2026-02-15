@@ -41,15 +41,16 @@ func newCmdVariableListWith(clientFn variableListClientFactory) *cobra.Command {
 	var workspaceName string
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List variables for a workspace",
+		Use:          "list",
+		Short:        "List variables for a workspace",
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			org := viper.GetString("org")
 			if org == "" {
 				return fmt.Errorf("organization is required: use --org flag, TFE_ORG env, or set 'org' in config file")
 			}
 			if workspaceName == "" {
-				return fmt.Errorf("workspace is required: use --workspace (-w) flag")
+				return fmt.Errorf("workspace is required: use --workspace/-w flag")
 			}
 
 			svc, err := clientFn()

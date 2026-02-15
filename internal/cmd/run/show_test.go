@@ -338,8 +338,8 @@ func TestRunShow_NoArgs(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "either run-id, --pr, or --workspace is required") {
-		t.Errorf("expected 'either run-id, --pr, or --workspace is required' error, got: %v", err)
+	if !strings.Contains(err.Error(), "either run-id, --pr, or --workspace/-w is required") {
+		t.Errorf("expected 'either run-id, --pr, or --workspace/-w is required' error, got: %v", err)
 	}
 }
 
@@ -1050,7 +1050,7 @@ func TestRunShow_NoArgsNoPRNoWorkspace(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "either run-id, --pr, or --workspace is required") {
-		t.Errorf("expected 'run-id or --pr or --workspace required' error, got: %v", err)
+	if !strings.Contains(err.Error(), "either run-id, --pr, or --workspace/-w is required") {
+		t.Errorf("expected 'run-id or --pr or --workspace/-w required' error, got: %v", err)
 	}
 }

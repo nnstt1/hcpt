@@ -31,9 +31,10 @@ func newCmdDriftShow() *cobra.Command {
 
 func newCmdDriftShowWith(clientFn driftShowClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "show <workspace>",
-		Short: "Show drift detection detail for a workspace",
-		Args:  cobra.ExactArgs(1),
+		Use:          "show <workspace>",
+		Short:        "Show drift detection detail for a workspace",
+		Args:         cobra.ExactArgs(1),
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			org := viper.GetString("org")
 			if org == "" {

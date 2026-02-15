@@ -36,16 +36,17 @@ func newCmdVariableSetWith(clientFn variableSetClientFactory) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "set <key> <value>",
-		Short: "Create or update a workspace variable",
-		Args:  cobra.ExactArgs(2),
+		Use:          "set <key> <value>",
+		Short:        "Create or update a workspace variable",
+		Args:         cobra.ExactArgs(2),
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			org := viper.GetString("org")
 			if org == "" {
 				return fmt.Errorf("organization is required: use --org flag, TFE_ORG env, or set 'org' in config file")
 			}
 			if workspaceName == "" {
-				return fmt.Errorf("workspace is required: use --workspace (-w) flag")
+				return fmt.Errorf("workspace is required: use --workspace/-w flag")
 			}
 
 			cat := tfe.CategoryTerraform
