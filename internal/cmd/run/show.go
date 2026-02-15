@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"time"
 
 	tfe "github.com/hashicorp/go-tfe"
@@ -49,11 +50,14 @@ func newCmdRunShow() *cobra.Command {
 func newCmdRunShowWith(clientFn runShowClientFactory) *cobra.Command {
 	var workspaceName string
 	var watch bool
+	var prNumber int
+	var repoFullName string
 
 	cmd := &cobra.Command{
-		Use:   "show [run-id]",
-		Short: "Show run details",
-		Args:  cobra.MaximumNArgs(1),
+		Use:          "show [run-id]",
+		Short:        "Show run details",
+		Args:         cobra.MaximumNArgs(1),
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var runID string
 			if len(args) > 0 {
@@ -65,20 +69,54 @@ func newCmdRunShowWith(clientFn runShowClientFactory) *cobra.Command {
 				return fmt.Errorf("organization is required: use --org flag, TFE_ORG env, or set 'org' in config file")
 			}
 
-			if runID == "" && workspaceName == "" {
-				return fmt.Errorf("either run-id or --workspace is required")
+			// Validate flag combinations
+			if runID != "" && prNumber > 0 {
+				return fmt.Errorf("cannot specify both run-id and --pr")
+			}
+
+			if prNumber > 0 && repoFullName == "" {
+				return fmt.Errorf("--repo is required when using --pr")
+			}
+
+			if repoFullName != "" && !strings.Contains(repoFullName, "/") {
+				return fmt.Errorf("--repo must be in format 'owner/repo'")
+			}
+
+			if runID == "" && prNumber == 0 && workspaceName == "" {
+				return fmt.Errorf("either run-id, --pr, or --workspace is required")
 			}
 
 			svc, err := clientFn()
 			if err != nil {
 				return err
 			}
+
+			// If --pr is specified, get run-id from GitHub
+			if prNumber > 0 {
+				ghClient, err := client.NewGitHubClientWrapper()
+				if err != nil {
+					return err
+				}
+
+				// Parse owner/repo
+				parts := strings.Split(repoFullName, "/")
+				owner, repo := parts[0], parts[1]
+
+				ctx := context.Background()
+				runID, err = ghClient.GetRunIDFromPR(ctx, owner, repo, prNumber, workspaceName)
+				if err != nil {
+					return err
+				}
+			}
+
 			return runRunShow(svc, runID, org, workspaceName, watch)
 		},
 	}
 
 	cmd.Flags().StringVarP(&workspaceName, "workspace", "w", "", "workspace name (get latest run)")
 	cmd.Flags().BoolVarP(&watch, "watch", "W", false, "watch run status until completion")
+	cmd.Flags().IntVarP(&prNumber, "pr", "p", 0, "GitHub pull request number")
+	cmd.Flags().StringVarP(&repoFullName, "repo", "r", "", "GitHub repository (owner/repo)")
 
 	return cmd
 }

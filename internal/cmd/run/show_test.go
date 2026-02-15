@@ -338,8 +338,8 @@ func TestRunShow_NoArgs(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "either run-id or --workspace is required") {
-		t.Errorf("expected 'either run-id or --workspace is required' error, got: %v", err)
+	if !strings.Contains(err.Error(), "either run-id, --pr, or --workspace is required") {
+		t.Errorf("expected 'either run-id, --pr, or --workspace is required' error, got: %v", err)
 	}
 }
 
@@ -961,4 +961,96 @@ func (m *mockRunShowServiceWithWatchError) ListWorkspaces(_ context.Context, _ s
 
 func (m *mockRunShowServiceWithWatchError) ReadWorkspace(_ context.Context, _, _ string) (*tfe.Workspace, error) {
 	return nil, nil
+}
+
+func TestRunShow_WithPR_MissingRepo(t *testing.T) {
+	viper.Reset()
+
+	cmd := newCmdRunShowWith(func() (runShowService, error) {
+		return &mockRunShowService{}, nil
+	})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+	cmd.SetArgs([]string{"--pr", "42"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "--repo is required when using --pr") {
+		t.Errorf("expected '--repo is required' error, got: %v", err)
+	}
+}
+
+func TestRunShow_WithPR_InvalidRepoFormat(t *testing.T) {
+	viper.Reset()
+
+	cmd := newCmdRunShowWith(func() (runShowService, error) {
+		return &mockRunShowService{}, nil
+	})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+	cmd.SetArgs([]string{"--pr", "42", "--repo", "invalidrepo"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "--repo must be in format 'owner/repo'") {
+		t.Errorf("expected 'owner/repo format' error, got: %v", err)
+	}
+}
+
+func TestRunShow_RunID_and_PR_MutuallyExclusive(t *testing.T) {
+	viper.Reset()
+
+	cmd := newCmdRunShowWith(func() (runShowService, error) {
+		return &mockRunShowService{}, nil
+	})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+	cmd.SetArgs([]string{"run-abc123", "--pr", "42", "--repo", "owner/repo"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "cannot specify both run-id and --pr") {
+		t.Errorf("expected 'mutually exclusive' error, got: %v", err)
+	}
+}
+
+func TestRunShow_NoArgsNoPRNoWorkspace(t *testing.T) {
+	viper.Reset()
+
+	cmd := newCmdRunShowWith(func() (runShowService, error) {
+		return &mockRunShowService{}, nil
+	})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+	cmd.SetArgs([]string{})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "either run-id, --pr, or --workspace is required") {
+		t.Errorf("expected 'run-id or --pr or --workspace required' error, got: %v", err)
+	}
 }

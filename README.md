@@ -18,6 +18,8 @@ Download binaries from [Releases](https://github.com/nnstt1/hcpt/releases).
 
 ## Authentication
 
+### HCP Terraform
+
 API tokens are resolved in the following priority order:
 
 1. `TFE_TOKEN` environment variable
@@ -45,6 +47,22 @@ org: "my-organization"
 The address can also be set via the `TFE_ADDRESS` environment variable.
 
 The path to `~/.terraformrc` can be overridden with the `TF_CLI_CONFIG_FILE` environment variable.
+
+### GitHub (for --pr flag)
+
+When using the `--pr` flag with `run show`, GitHub tokens are resolved in the following priority order:
+
+1. `gh auth token` (GitHub CLI authentication)
+2. `GITHUB_TOKEN` environment variable
+3. `github-token` field in `~/.hcpt.yaml`
+
+```bash
+# Authenticate with GitHub CLI
+gh auth login
+
+# Use --pr flag
+hcpt run show --pr 42 --repo owner/repo
+```
 
 ## Usage
 
@@ -113,6 +131,15 @@ hcpt run show --org my-org -w my-workspace
 
 # Watch a run until it completes
 hcpt run show run-abc123 --watch
+
+# Show run from GitHub PR
+hcpt run show --pr 42 --repo owner/repo
+
+# Watch run from GitHub PR
+hcpt run show --pr 42 --repo owner/repo --watch
+
+# Show run from GitHub PR (specific workspace in monorepo)
+hcpt run show --pr 42 --repo owner/repo -w my-workspace
 ```
 
 ### Variables

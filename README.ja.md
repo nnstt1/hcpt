@@ -18,6 +18,8 @@ go install github.com/nnstt1/hcpt@latest
 
 ## 認証
 
+### HCP Terraform
+
 API トークンを以下の優先順位で探索します:
 
 1. 環境変数 `TFE_TOKEN`
@@ -45,6 +47,22 @@ org: "my-organization"
 アドレスは環境変数 `TFE_ADDRESS` でも指定できます。
 
 `~/.terraformrc` のパスは環境変数 `TF_CLI_CONFIG_FILE` で上書きできます。
+
+### GitHub（--pr フラグ使用時）
+
+`run show` で `--pr` フラグを使用する場合、GitHub トークンを以下の優先順位で探索します:
+
+1. `gh auth token`（GitHub CLI 認証）
+2. 環境変数 `GITHUB_TOKEN`
+3. 設定ファイル `~/.hcpt.yaml` の `github-token` フィールド
+
+```bash
+# GitHub CLI で認証
+gh auth login
+
+# --pr フラグを使用
+hcpt run show --pr 42 --repo owner/repo
+```
 
 ## 使い方
 
@@ -113,6 +131,15 @@ hcpt run show --org my-org -w my-workspace
 
 # Run の完了を監視
 hcpt run show run-abc123 --watch
+
+# GitHub PR から Run を表示
+hcpt run show --pr 42 --repo owner/repo
+
+# GitHub PR から Run を監視
+hcpt run show --pr 42 --repo owner/repo --watch
+
+# GitHub PR から Run を表示（monorepo で複数ワークスペースがある場合）
+hcpt run show --pr 42 --repo owner/repo -w my-workspace
 ```
 
 ### Variable
