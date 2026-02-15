@@ -8,6 +8,7 @@
     "every weekend"
   ],
   "timezone": "Asia/Tokyo",
+  "dependencyDashboard": false,
   "labels": [
     "dependencies"
   ],
