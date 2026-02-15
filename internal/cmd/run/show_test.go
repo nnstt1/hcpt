@@ -3,7 +3,9 @@ package run
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -45,6 +47,23 @@ func (m *mockRunShowService) ReadWorkspace(_ context.Context, _, _ string) (*tfe
 		return nil, m.workspaceErr
 	}
 	return m.workspace, nil
+}
+
+func (m *mockRunShowService) ReadPlanJSONOutput(_ context.Context, _ string) ([]byte, error) {
+	return nil, fmt.Errorf("ReadPlanJSONOutput not implemented in mockRunShowService")
+}
+
+type mockRunShowServiceExtended struct {
+	mockRunShowService
+	planJSON    []byte
+	planJSONErr error
+}
+
+func (m *mockRunShowServiceExtended) ReadPlanJSONOutput(_ context.Context, _ string) ([]byte, error) {
+	if m.planJSONErr != nil {
+		return nil, m.planJSONErr
+	}
+	return m.planJSON, nil
 }
 
 func TestRunShow_Table(t *testing.T) {
@@ -103,7 +122,7 @@ func TestRunShow_Table_Output(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runRunShow(mock, "run-abc123", "", "", false)
+	err := runRunShow(mock, "run-abc123", "", "", false, false)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -149,7 +168,7 @@ func TestRunShow_Table_WithTimestamps(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runRunShow(mock, "run-abc123", "", "", false)
+	err := runRunShow(mock, "run-abc123", "", "", false, false)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -190,7 +209,7 @@ func TestRunShow_Table_NonTerminalStatus(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runRunShow(mock, "run-planning", "", "", false)
+	err := runRunShow(mock, "run-planning", "", "", false, false)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -247,7 +266,7 @@ func TestRunShow_JSON(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runRunShow(mock, "run-abc123", "", "", false)
+	err := runRunShow(mock, "run-abc123", "", "", false, false)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -378,7 +397,7 @@ func TestRunShow_WithWorkspace_Table(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runRunShow(mock, "", "test-org", "production", false)
+	err := runRunShow(mock, "", "test-org", "production", false, false)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -428,7 +447,7 @@ func TestRunShow_WithWorkspace_JSON(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runRunShow(mock, "", "test-org", "production", false)
+	err := runRunShow(mock, "", "test-org", "production", false, false)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -607,6 +626,10 @@ func (m *mockRunShowServiceWithWatch) ReadWorkspace(_ context.Context, _, _ stri
 	return m.workspace, nil
 }
 
+func (m *mockRunShowServiceWithWatch) ReadPlanJSONOutput(_ context.Context, _ string) ([]byte, error) {
+	return nil, fmt.Errorf("ReadPlanJSONOutput not implemented in mockRunShowServiceWithWatch")
+}
+
 func TestIsTerminalStatus(t *testing.T) {
 	tests := []struct {
 		status   tfe.RunStatus
@@ -696,7 +719,7 @@ func TestRunShow_Watch_StatusChange(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runRunShowWithInterval(mock, "run-watch123", "", "", true, 10*time.Millisecond)
+	err := runRunShowWithInterval(mock, "run-watch123", "", "", true, false, 10*time.Millisecond)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -770,7 +793,7 @@ func TestRunShow_Watch_JSON(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runRunShowWithInterval(mock, "run-watch-json", "", "", true, 10*time.Millisecond)
+	err := runRunShowWithInterval(mock, "run-watch-json", "", "", true, false, 10*time.Millisecond)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -822,7 +845,7 @@ func TestRunShow_Watch_AlreadyTerminal(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runRunShowWithInterval(mock, "run-terminal", "", "", true, 10*time.Millisecond)
+	err := runRunShowWithInterval(mock, "run-terminal", "", "", true, false, 10*time.Millisecond)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -903,7 +926,7 @@ func TestRunShow_Watch_APIError(t *testing.T) {
 		finalRun:   mock.runs[2],
 	}
 
-	err := runRunShowWithInterval(mockWithError, "run-error", "", "", true, 10*time.Millisecond)
+	err := runRunShowWithInterval(mockWithError, "run-error", "", "", true, false, 10*time.Millisecond)
 
 	_ = stdoutW.Close()
 	_ = stderrW.Close()
@@ -961,6 +984,10 @@ func (m *mockRunShowServiceWithWatchError) ListWorkspaces(_ context.Context, _ s
 
 func (m *mockRunShowServiceWithWatchError) ReadWorkspace(_ context.Context, _, _ string) (*tfe.Workspace, error) {
 	return nil, nil
+}
+
+func (m *mockRunShowServiceWithWatchError) ReadPlanJSONOutput(_ context.Context, _ string) ([]byte, error) {
+	return nil, fmt.Errorf("ReadPlanJSONOutput not implemented in mockRunShowServiceWithWatchError")
 }
 
 func TestRunShow_WithPR_MissingRepo(t *testing.T) {
@@ -1052,5 +1079,185 @@ func TestRunShow_NoArgsNoPRNoWorkspace(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "either run-id, --pr, or --workspace/-w is required") {
 		t.Errorf("expected 'run-id or --pr or --workspace/-w required' error, got: %v", err)
+	}
+}
+
+func TestRunShow_PlanJSON(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+
+	mock := &mockRunShowServiceExtended{
+		mockRunShowService: mockRunShowService{
+			run: &tfe.Run{
+				ID:     "run-abc123",
+				Status: tfe.RunApplied,
+				Plan: &tfe.Plan{
+					ID:                   "plan-xyz",
+					ResourceAdditions:    2,
+					ResourceChanges:      1,
+					ResourceDestructions: 0,
+				},
+				Message:          "Apply complete",
+				TerraformVersion: "1.5.0",
+				HasChanges:       true,
+				CreatedAt:        time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+			},
+		},
+		planJSON: []byte(`{"format_version":"1.2","terraform_version":"1.5.0","resource_changes":[{"address":"aws_instance.example","mode":"managed","type":"aws_instance","name":"example","change":{"actions":["create"]}}]}`),
+	}
+
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { os.Stdout = oldStdout }()
+
+	cmd := newCmdRunShowWith(func() (runShowService, error) {
+		return mock, nil
+	})
+	cmd.SetArgs([]string{"run-abc123", "--plan-json"})
+
+	err := cmd.Execute()
+
+	_ = w.Close()
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// テーブル出力の確認
+	if !strings.Contains(output, "run-abc123") {
+		t.Errorf("expected run ID in output")
+	}
+
+	// 区切り線と Plan JSON の確認
+	if !strings.Contains(output, "---") {
+		t.Errorf("expected separator in output")
+	}
+	if !strings.Contains(output, "format_version") {
+		t.Errorf("expected plan JSON in output")
+	}
+	if !strings.Contains(output, "aws_instance.example") {
+		t.Errorf("expected resource in plan JSON")
+	}
+}
+
+func TestRunShow_PlanJSON_JSONMode(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", true)
+
+	mock := &mockRunShowServiceExtended{
+		mockRunShowService: mockRunShowService{
+			run: &tfe.Run{
+				ID:     "run-abc123",
+				Status: tfe.RunApplied,
+				Plan: &tfe.Plan{
+					ID:                   "plan-xyz",
+					ResourceAdditions:    2,
+					ResourceChanges:      1,
+					ResourceDestructions: 0,
+				},
+				Message:          "Apply complete",
+				TerraformVersion: "1.5.0",
+				HasChanges:       true,
+				CreatedAt:        time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+			},
+		},
+		planJSON: []byte(`{"format_version":"1.2","terraform_version":"1.5.0"}`),
+	}
+
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { os.Stdout = oldStdout }()
+
+	cmd := newCmdRunShowWith(func() (runShowService, error) {
+		return mock, nil
+	})
+	cmd.SetArgs([]string{"run-abc123", "--plan-json"})
+
+	err := cmd.Execute()
+
+	_ = w.Close()
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// JSON パース
+	var result map[string]interface{}
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("failed to parse JSON output: %v", err)
+	}
+
+	// "run" フィールドの確認
+	run, ok := result["run"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected 'run' field in JSON output")
+	}
+	if run["id"] != "run-abc123" {
+		t.Errorf("unexpected run ID: %v", run["id"])
+	}
+
+	// "plan_json" フィールドの確認
+	planJSON, ok := result["plan_json"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected 'plan_json' field in JSON output")
+	}
+	if planJSON["format_version"] != "1.2" {
+		t.Errorf("unexpected format_version: %v", planJSON["format_version"])
+	}
+}
+
+func TestRunShow_PlanJSON_NoPlan(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+
+	mock := &mockRunShowServiceExtended{
+		mockRunShowService: mockRunShowService{
+			run: &tfe.Run{
+				ID:     "run-abc123",
+				Status: tfe.RunPlanned,
+				Plan:   nil, // Plan なし
+			},
+		},
+	}
+
+	cmd := newCmdRunShowWith(func() (runShowService, error) {
+		return mock, nil
+	})
+	cmd.SetArgs([]string{"run-abc123", "--plan-json"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when plan is nil")
+	}
+	if !strings.Contains(err.Error(), "does not have a plan") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+func TestRunShow_WithWatch_PlanJSON_Error(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+
+	cmd := newCmdRunShowWith(func() (runShowService, error) {
+		return &mockRunShowServiceExtended{}, nil
+	})
+	cmd.SetArgs([]string{"run-abc123", "--watch", "--plan-json"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when using --watch with --plan-json")
+	}
+	if !strings.Contains(err.Error(), "cannot be used with --watch") {
+		t.Errorf("unexpected error message: %v", err)
 	}
 }
