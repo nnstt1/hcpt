@@ -11,6 +11,61 @@ import (
 	"github.com/spf13/viper"
 )
 
+// DetectGitHubRepository detects GitHub repository (owner/repo) from current directory's Git remote.
+// It prioritizes 'origin' remote if multiple remotes exist.
+// Returns owner/repo format or an error if not a Git repo or GitHub remote not found.
+func DetectGitHubRepository() (string, error) {
+	// Try to get origin remote URL first
+	cmd := exec.Command("git", "remote", "get-url", "origin")
+	output, err := cmd.Output()
+	if err != nil {
+		// If origin doesn't exist, try to get any remote
+		cmd = exec.Command("git", "remote")
+		remotesOutput, err := cmd.Output()
+		if err != nil {
+			return "", fmt.Errorf("git repository not found in current directory\nPlease specify repository using --repo flag (e.g., --repo owner/repo)")
+		}
+
+		remotes := strings.Fields(string(remotesOutput))
+		if len(remotes) == 0 {
+			return "", fmt.Errorf("no git remote found in current directory\nPlease specify repository using --repo flag (e.g., --repo owner/repo)")
+		}
+
+		// Get URL of the first remote
+		cmd = exec.Command("git", "remote", "get-url", remotes[0])
+		output, err = cmd.Output()
+		if err != nil {
+			return "", fmt.Errorf("failed to get git remote URL\nPlease specify repository using --repo flag (e.g., --repo owner/repo)")
+		}
+	}
+
+	remoteURL := strings.TrimSpace(string(output))
+	return parseGitHubRepository(remoteURL)
+}
+
+// parseGitHubRepository parses GitHub repository (owner/repo) from a Git remote URL.
+// Supports both SSH (git@github.com:owner/repo.git) and HTTPS (https://github.com/owner/repo.git) formats.
+func parseGitHubRepository(remoteURL string) (string, error) {
+	// SSH format: git@github.com:owner/repo.git
+	sshPattern := regexp.MustCompile(`^git@github\.com:([^/]+)/(.+?)(\.git)?$`)
+	if matches := sshPattern.FindStringSubmatch(remoteURL); matches != nil {
+		owner := matches[1]
+		repo := strings.TrimSuffix(matches[2], ".git")
+		return fmt.Sprintf("%s/%s", owner, repo), nil
+	}
+
+	// HTTPS format: https://github.com/owner/repo.git or https://github.com/owner/repo
+	httpsPattern := regexp.MustCompile(`^https://github\.com/([^/]+)/(.+?)(\.git)?$`)
+	if matches := httpsPattern.FindStringSubmatch(remoteURL); matches != nil {
+		owner := matches[1]
+		repo := strings.TrimSuffix(matches[2], ".git")
+		return fmt.Sprintf("%s/%s", owner, repo), nil
+	}
+
+	// Not a GitHub remote
+	return "", fmt.Errorf("git remote is not a GitHub repository: %s\nPlease specify repository using --repo flag (e.g., --repo owner/repo)", remoteURL)
+}
+
 // GitHubService provides operations on GitHub repositories.
 type GitHubService interface {
 	GetRunIDFromPR(ctx context.Context, owner, repo string, prNumber int, workspaceName string) (string, error)
