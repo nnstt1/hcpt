@@ -3,7 +3,7 @@ module github.com/nnstt1/hcpt
 go 1.25.6
 
 require (
-	github.com/google/go-github/v68 v68.0.0
+	github.com/google/go-github/v82 v82.0.0
 	github.com/hashicorp/go-tfe v1.100.0
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/spf13/cobra v1.10.2

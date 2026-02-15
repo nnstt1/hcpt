@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/google/go-github/v68/github"
+	"github.com/google/go-github/v82/github"
 	"github.com/spf13/viper"
 )
 
