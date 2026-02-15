@@ -54,9 +54,10 @@ func newCmdRunShowWith(clientFn runShowClientFactory) *cobra.Command {
 	var repoFullName string
 
 	cmd := &cobra.Command{
-		Use:   "show [run-id]",
-		Short: "Show run details",
-		Args:  cobra.MaximumNArgs(1),
+		Use:          "show [run-id]",
+		Short:        "Show run details",
+		Args:         cobra.MaximumNArgs(1),
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var runID string
 			if len(args) > 0 {
@@ -105,11 +106,6 @@ func newCmdRunShowWith(clientFn runShowClientFactory) *cobra.Command {
 				runID, err = ghClient.GetRunIDFromPR(ctx, owner, repo, prNumber, workspaceName)
 				if err != nil {
 					return err
-				}
-
-				// Display retrieved run-id (except in JSON mode)
-				if !viper.GetBool("json") {
-					fmt.Fprintf(os.Stderr, "Retrieved run ID: %s\n", runID)
 				}
 			}
 

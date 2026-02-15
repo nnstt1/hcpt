@@ -45,8 +45,9 @@ func newCmdRunListWith(clientFn runListClientFactory) *cobra.Command {
 	var status string
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List runs for a workspace",
+		Use:          "list",
+		Short:        "List runs for a workspace",
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			org := viper.GetString("org")
 			if org == "" {

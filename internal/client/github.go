@@ -69,26 +69,29 @@ func (c *GitHubClientWrapper) GetRunIDFromPR(ctx context.Context, owner, repo st
 		return "", fmt.Errorf("failed to get commit statuses for %s: %w", commitSHA, err)
 	}
 
-	// Extract run IDs from statuses
+	// Extract run IDs from statuses (deduplicate by context, keeping the latest)
 	runIDPattern := regexp.MustCompile(`app\.terraform\.io/.+/runs/(run-[A-Za-z0-9]+)`)
-	runIDMap := make(map[string]string) // run-id -> context
+	contextToRunID := make(map[string]string) // context -> run-id (latest)
 
 	for _, status := range statuses {
 		targetURL := status.GetTargetURL()
 		if matches := runIDPattern.FindStringSubmatch(targetURL); matches != nil {
 			runID := matches[1]
 			context := status.GetContext()
-			runIDMap[runID] = context
+			// Only keep the first (latest) run-id for each context
+			if _, exists := contextToRunID[context]; !exists {
+				contextToRunID[context] = runID
+			}
 		}
 	}
 
-	if len(runIDMap) == 0 {
+	if len(contextToRunID) == 0 {
 		return "", fmt.Errorf("no HCP Terraform run found in PR #%d", prNumber)
 	}
 
 	// If workspace name is specified, filter by context
 	if workspaceName != "" {
-		for runID, context := range runIDMap {
+		for context, runID := range contextToRunID {
 			if strings.Contains(context, workspaceName) {
 				return runID, nil
 			}
@@ -97,16 +100,16 @@ func (c *GitHubClientWrapper) GetRunIDFromPR(ctx context.Context, owner, repo st
 	}
 
 	// If only one run found, return it
-	if len(runIDMap) == 1 {
-		for runID := range runIDMap {
+	if len(contextToRunID) == 1 {
+		for _, runID := range contextToRunID {
 			return runID, nil
 		}
 	}
 
 	// Multiple runs found, list contexts for user guidance
-	contexts := make([]string, 0, len(runIDMap))
-	for _, context := range runIDMap {
-		contexts = append(contexts, context)
+	contexts := make([]string, 0, len(contextToRunID))
+	for context := range contextToRunID {
+		contexts = append(contexts, fmt.Sprintf("  - %s", context))
 	}
-	return "", fmt.Errorf("multiple HCP Terraform runs found in PR #%d: [%s]. Use --workspace to specify which one", prNumber, strings.Join(contexts, ", "))
+	return "", fmt.Errorf("multiple HCP Terraform runs found in PR #%d:\n%s\nUse --workspace/-w to specify which one", prNumber, strings.Join(contexts, "\n"))
 }
