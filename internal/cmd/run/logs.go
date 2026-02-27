@@ -119,7 +119,7 @@ func printLogs(w io.Writer, r io.Reader, errorOnly bool) error {
 		if errorOnly && !isErrorLine(line) {
 			continue
 		}
-		fmt.Fprintln(w, line)
+		_, _ = fmt.Fprintln(w, line)
 	}
 	return scanner.Err()
 }
