@@ -32,6 +32,7 @@ hcpt
 ├── workspace show    # Show details of a specific workspace
 ├── run list          # Show run history for a workspace (filterable with --status)
 ├── run show          # Show run details (--watch to monitor until completion)
+├── run logs          # Show apply logs for a run (--error-only to filter errors)
 ├── variable list     # List variables in a workspace
 ├── variable set      # Create/update a variable (upsert)
 ├── variable delete   # Delete a variable

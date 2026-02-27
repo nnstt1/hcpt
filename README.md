@@ -140,6 +140,15 @@ hcpt run show --pr 42 --repo owner/repo --watch
 
 # Show run from GitHub PR (specific workspace in monorepo)
 hcpt run show --pr 42 --repo owner/repo -w my-workspace
+
+# Show apply logs for a run
+hcpt run logs run-abc123
+
+# Show only error lines
+hcpt run logs run-abc123 --error-only
+
+# Show apply logs for the latest run in a workspace
+hcpt run logs --org my-org -w my-workspace
 ```
 
 ### Variables
