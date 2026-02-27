@@ -9,7 +9,7 @@ require (
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
-	github.com/zclconf/go-cty v1.16.3
+	github.com/zclconf/go-cty v1.18.0
 	go.yaml.in/yaml/v3 v3.0.4
 )
 
