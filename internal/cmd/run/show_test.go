@@ -49,6 +49,13 @@ func (m *mockRunShowService) ReadWorkspace(_ context.Context, _, _ string) (*tfe
 	return m.workspace, nil
 }
 
+func (m *mockRunShowService) ReadRunWithApply(_ context.Context, _ string) (*tfe.Run, error) {
+	if m.runErr != nil {
+		return nil, m.runErr
+	}
+	return m.run, nil
+}
+
 func (m *mockRunShowService) ReadPlanJSONOutput(_ context.Context, _ string) ([]byte, error) {
 	return nil, fmt.Errorf("ReadPlanJSONOutput not implemented in mockRunShowService")
 }
@@ -626,6 +633,18 @@ func (m *mockRunShowServiceWithWatch) ReadWorkspace(_ context.Context, _, _ stri
 	return m.workspace, nil
 }
 
+func (m *mockRunShowServiceWithWatch) ReadRunWithApply(_ context.Context, _ string) (*tfe.Run, error) {
+	if m.readErr != nil {
+		return nil, m.readErr
+	}
+	if m.readCount >= len(m.runs) {
+		return m.runs[len(m.runs)-1], nil
+	}
+	r := m.runs[m.readCount]
+	m.readCount++
+	return r, nil
+}
+
 func (m *mockRunShowServiceWithWatch) ReadPlanJSONOutput(_ context.Context, _ string) ([]byte, error) {
 	return nil, fmt.Errorf("ReadPlanJSONOutput not implemented in mockRunShowServiceWithWatch")
 }
@@ -984,6 +1003,17 @@ func (m *mockRunShowServiceWithWatchError) ListWorkspaces(_ context.Context, _ s
 
 func (m *mockRunShowServiceWithWatchError) ReadWorkspace(_ context.Context, _, _ string) (*tfe.Workspace, error) {
 	return nil, nil
+}
+
+func (m *mockRunShowServiceWithWatchError) ReadRunWithApply(_ context.Context, _ string) (*tfe.Run, error) {
+	m.callCount++
+	if m.callCount == 1 {
+		return m.initialRun, nil
+	}
+	if m.callCount == 2 {
+		return nil, fmt.Errorf("temporary API error")
+	}
+	return m.finalRun, nil
 }
 
 func (m *mockRunShowServiceWithWatchError) ReadPlanJSONOutput(_ context.Context, _ string) ([]byte, error) {

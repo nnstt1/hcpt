@@ -32,11 +32,17 @@ type WorkspaceService interface {
 type RunService interface {
 	ListRuns(ctx context.Context, workspaceID string, opts *tfe.RunListOptions) (*tfe.RunList, error)
 	ReadRun(ctx context.Context, runID string) (*tfe.Run, error)
+	ReadRunWithApply(ctx context.Context, runID string) (*tfe.Run, error)
 }
 
 // PlanService provides operations on HCP Terraform plans.
 type PlanService interface {
 	ReadPlanJSONOutput(ctx context.Context, planID string) ([]byte, error)
+}
+
+// ApplyService provides operations on HCP Terraform applies.
+type ApplyService interface {
+	ReadApplyLogs(ctx context.Context, applyID string) (io.Reader, error)
 }
 
 // VariableService provides operations on HCP Terraform workspace variables.
@@ -196,9 +202,20 @@ func (c *ClientWrapper) ReadRun(ctx context.Context, runID string) (*tfe.Run, er
 	})
 }
 
+func (c *ClientWrapper) ReadRunWithApply(ctx context.Context, runID string) (*tfe.Run, error) {
+	return c.client.Runs.ReadWithOptions(ctx, runID, &tfe.RunReadOptions{
+		Include: []tfe.RunIncludeOpt{tfe.RunPlan, tfe.RunApply},
+	})
+}
+
 // ReadPlanJSONOutput reads the JSON output of a plan.
 func (c *ClientWrapper) ReadPlanJSONOutput(ctx context.Context, planID string) ([]byte, error) {
 	return c.client.Plans.ReadJSONOutput(ctx, planID)
+}
+
+// ReadApplyLogs reads the log output for an apply.
+func (c *ClientWrapper) ReadApplyLogs(ctx context.Context, applyID string) (io.Reader, error) {
+	return c.client.Applies.Logs(ctx, applyID)
 }
 
 func (c *ClientWrapper) ListVariables(ctx context.Context, workspaceID string, opts *tfe.VariableListOptions) (*tfe.VariableList, error) {
