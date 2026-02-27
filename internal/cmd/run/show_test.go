@@ -222,13 +222,13 @@ func TestRunShow_Table_NonTerminalStatus(t *testing.T) {
 	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
-	// 非終了ステータスでは Has Changes と Plan Changes が "-" で表示される
+	// In non-terminal status, Has Changes and Plan Changes are displayed as "-"
 	for _, want := range []string{"Has Changes:", "Plan Changes:"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("expected %q in output, got:\n%s", want, got)
 		}
 	}
-	// true/false が表示されないことを確認
+	// Verify that true/false is not displayed
 	if strings.Contains(got, "Has Changes:        false") || strings.Contains(got, "Has Changes:        true") {
 		t.Errorf("expected Has Changes to be '-' for non-terminal status, got:\n%s", got)
 	}
@@ -284,7 +284,7 @@ func TestRunShow_JSON(t *testing.T) {
 			t.Errorf("expected %q in JSON output, got:\n%s", want, got)
 		}
 	}
-	// タイムスタンプがない場合は省略されることを確認するため、is_destroy が含まれないことを確認
+	// Verify that is_destroy is not included (to confirm fields without timestamps are omitted)
 	if strings.Contains(got, "is_destroy") {
 		t.Errorf("expected 'is_destroy' to be removed from JSON, got:\n%s", got)
 	}
@@ -732,17 +732,17 @@ func TestRunShow_Watch_StatusChange(t *testing.T) {
 	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
-	// 初回表示を確認
+	// Verify initial display
 	if !strings.Contains(got, "ID:") || !strings.Contains(got, "run-watch123") {
 		t.Errorf("expected initial display in output, got:\n%s", got)
 	}
 
-	// 区切り線を確認
+	// Verify separator line
 	if !strings.Contains(got, "---") {
 		t.Errorf("expected separator line in output, got:\n%s", got)
 	}
 
-	// ポーリングごとにステータスが出力されることを確認
+	// Verify that status is output on each poll
 	if !strings.Contains(got, "Status: planning") {
 		t.Errorf("expected 'Status: planning' in output, got:\n%s", got)
 	}
@@ -753,7 +753,7 @@ func TestRunShow_Watch_StatusChange(t *testing.T) {
 		t.Errorf("expected 'Status: applied' in output, got:\n%s", got)
 	}
 
-	// 終了時に詳細情報が再表示されることを確認
+	// Verify that detailed info is re-displayed at completion
 	if !strings.Contains(got, "Plan Changes:       +1 ~2 -3") {
 		t.Errorf("expected final Plan Changes in output, got:\n%s", got)
 	}
@@ -806,7 +806,7 @@ func TestRunShow_Watch_JSON(t *testing.T) {
 	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
-	// JSON モードでは最終結果のみ出力される
+	// In JSON mode, only the final result is output
 	if !strings.Contains(got, `"id": "run-watch-json"`) {
 		t.Errorf("expected JSON output with run ID, got:\n%s", got)
 	}
@@ -814,7 +814,7 @@ func TestRunShow_Watch_JSON(t *testing.T) {
 		t.Errorf("expected final status 'applied' in JSON output, got:\n%s", got)
 	}
 
-	// JSON モードでは区切り線やステータス更新が出力されないことを確認
+	// Verify that separator lines and status updates are not output in JSON mode
 	if strings.Contains(got, "---") {
 		t.Errorf("unexpected separator line in JSON output, got:\n%s", got)
 	}
@@ -858,17 +858,17 @@ func TestRunShow_Watch_AlreadyTerminal(t *testing.T) {
 	_, _ = buf.ReadFrom(r)
 	got := buf.String()
 
-	// 初回表示のみ出力される
+	// Only initial display is output
 	if !strings.Contains(got, "ID:") || !strings.Contains(got, "run-terminal") {
 		t.Errorf("expected initial display in output, got:\n%s", got)
 	}
 
-	// 区切り線は出力されない（すでに終了ステータス）
+	// Separator line is not output (run already in terminal status)
 	if strings.Contains(got, "---") {
 		t.Errorf("unexpected separator line in output (run already terminal), got:\n%s", got)
 	}
 
-	// ReadRun が呼ばれていないことを確認
+	// Verify that ReadRun is not called
 	if mock.readCount > 1 {
 		t.Errorf("expected 1 ReadRun call for terminal run, got %d", mock.readCount)
 	}
@@ -889,7 +889,7 @@ func TestRunShow_Watch_APIError(t *testing.T) {
 				IsDestroy:        false,
 				CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
 			},
-			// 2回目以降はエラー、その後成功
+			// Second and subsequent calls return error, then succeed
 			{
 				ID:               "run-error",
 				Status:           tfe.RunPlanning,
@@ -909,7 +909,7 @@ func TestRunShow_Watch_APIError(t *testing.T) {
 				CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
 			},
 		},
-		readErr: nil, // エラーをシミュレートするには別のモックが必要
+		readErr: nil, // A separate mock is needed to simulate errors
 	}
 
 	oldStdout := os.Stdout
@@ -920,7 +920,7 @@ func TestRunShow_Watch_APIError(t *testing.T) {
 	stderrR, stderrW, _ := os.Pipe()
 	os.Stderr = stderrW
 
-	// エラー付きのモックに切り替え
+	// Switch to mock with error
 	mockWithError := &mockRunShowServiceWithWatchError{
 		initialRun: mock.runs[0],
 		finalRun:   mock.runs[2],
@@ -945,12 +945,12 @@ func TestRunShow_Watch_APIError(t *testing.T) {
 	_, _ = stderrBuf.ReadFrom(stderrR)
 	gotStderr := stderrBuf.String()
 
-	// 警告メッセージが stderr に出力されることを確認
+	// Verify that warning message is output to stderr
 	if !strings.Contains(gotStderr, "Warning: failed to read run") {
 		t.Errorf("expected warning message in stderr, got:\n%s", gotStderr)
 	}
 
-	// 最終的に成功して applied ステータスが表示されることを確認
+	// Verify that applied status is displayed after eventual success
 	if !strings.Contains(gotStdout, "Status: applied") {
 		t.Errorf("expected final status in stdout, got:\n%s", gotStdout)
 	}
@@ -1105,12 +1105,12 @@ func TestRunShow_PlanJSON(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// テーブル出力の確認
+	// Verify table output
 	if !strings.Contains(output, "run-abc123") {
 		t.Errorf("expected run ID in output")
 	}
 
-	// 区切り線と Plan JSON の確認
+	// Verify separator and plan JSON
 	if !strings.Contains(output, "---") {
 		t.Errorf("expected separator in output")
 	}
@@ -1168,13 +1168,13 @@ func TestRunShow_PlanJSON_JSONMode(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// JSON パース
+	// Parse JSON
 	var result map[string]interface{}
 	if err := json.Unmarshal([]byte(output), &result); err != nil {
 		t.Fatalf("failed to parse JSON output: %v", err)
 	}
 
-	// "run" フィールドの確認
+	// Verify "run" field
 	run, ok := result["run"].(map[string]interface{})
 	if !ok {
 		t.Fatalf("expected 'run' field in JSON output")
@@ -1183,7 +1183,7 @@ func TestRunShow_PlanJSON_JSONMode(t *testing.T) {
 		t.Errorf("unexpected run ID: %v", run["id"])
 	}
 
-	// "plan_json" フィールドの確認
+	// Verify "plan_json" field
 	planJSON, ok := result["plan_json"].(map[string]interface{})
 	if !ok {
 		t.Fatalf("expected 'plan_json' field in JSON output")
@@ -1202,7 +1202,7 @@ func TestRunShow_PlanJSON_NoPlan(t *testing.T) {
 			run: &tfe.Run{
 				ID:     "run-abc123",
 				Status: tfe.RunPlanned,
-				Plan:   nil, // Plan なし
+				Plan:   nil, // No plan
 			},
 		},
 	}

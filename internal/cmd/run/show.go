@@ -183,7 +183,7 @@ func runRunShowWithInterval(svc runShowService, runID string, org string, worksp
 			return fmt.Errorf("no runs found for workspace %q", workspaceName)
 		}
 
-		// ListRuns では Plan が含まれないため、ReadRun で詳細を取得
+		// ListRuns does not include Plan, so use ReadRun to fetch details
 		runID = runList.Items[0].ID
 		r, err = svc.ReadRun(ctx, runID)
 		if err != nil {
@@ -193,28 +193,28 @@ func runRunShowWithInterval(svc runShowService, runID string, org string, worksp
 		return fmt.Errorf("either run-id or --workspace/-w is required")
 	}
 
-	// watch モードの場合
+	// In watch mode
 	if watch {
 		return watchRun(ctx, svc, runID, r, pollInterval)
 	}
 
-	// --plan-json が指定された場合
+	// If --plan-json is specified
 	if planJSON {
-		// JSON モードでは displayPlanJSON が run 情報も含めて出力する
+		// In JSON mode, displayPlanJSON outputs run info as well
 		return displayPlanJSON(ctx, svc, r)
 	}
 
-	// Plan がある場合は変更差分を取得
+	// If plan exists, fetch resource changes
 	var resourceChanges []resourceChange
 	if r.Plan != nil && r.HasChanges {
 		planJSONBytes, err := svc.ReadPlanJSONOutput(ctx, r.Plan.ID)
 		if err == nil {
 			resourceChanges, _ = extractResourceChanges(planJSONBytes)
 		}
-		// エラーは無視して、変更差分なしで表示
+		// Ignore error and display without resource changes
 	}
 
-	// 通常の displayRun を呼ぶ
+	// Call regular displayRun
 	return displayRun(r, resourceChanges)
 }
 
@@ -258,7 +258,7 @@ func displayRun(r *tfe.Run, resourceChanges []resourceChange) error {
 
 	output.PrintKeyValue(os.Stdout, pairs)
 
-	// 変更差分がある場合は表示
+	// Display resource changes if any
 	if len(resourceChanges) > 0 {
 		_, _ = fmt.Fprintln(os.Stdout, "")
 		_, _ = fmt.Fprintln(os.Stdout, "Resource Changes:")
@@ -266,7 +266,7 @@ func displayRun(r *tfe.Run, resourceChanges []resourceChange) error {
 			action := strings.Join(rc.Actions, ", ")
 			_, _ = fmt.Fprintf(os.Stdout, "- %s [%s]\n", rc.Address, action)
 
-			// 属性の変更を表示
+			// Display attribute changes
 			if len(rc.Changes) > 0 {
 				for attr, ch := range rc.Changes {
 					beforeStr := formatValue(ch.Before)
@@ -471,12 +471,12 @@ func displayPlanJSON(ctx context.Context, svc runShowService, r *tfe.Run) error 
 		return fmt.Errorf("failed to read plan JSON: %w", err)
 	}
 
-	// 変更差分を抽出
+	// Extract resource changes
 	resourceChanges, _ := extractResourceChanges(planJSONBytes)
 
-	// --json フラグの有無で出力形式を変える
+	// Switch output format based on --json flag
 	if viper.GetBool("json") {
-		// JSON モード: {"run": {...}, "plan_json": {...}} 形式
+		// JSON mode: output in {"run": {...}, "plan_json": {...}} format
 		var planData map[string]interface{}
 		if err := json.Unmarshal(planJSONBytes, &planData); err != nil {
 			return fmt.Errorf("failed to parse plan JSON: %w", err)
@@ -489,7 +489,7 @@ func displayPlanJSON(ctx context.Context, svc runShowService, r *tfe.Run) error 
 		return output.PrintJSON(os.Stdout, combined)
 	}
 
-	// テーブルモード: まず run 情報を表示してから区切り線と Plan JSON を出力
+	// Table mode: display run info first, then separator and plan JSON
 	if err := displayRun(r, resourceChanges); err != nil {
 		return err
 	}
@@ -500,12 +500,12 @@ func displayPlanJSON(ctx context.Context, svc runShowService, r *tfe.Run) error 
 
 // watchRun polls the run status until it reaches a terminal state.
 func watchRun(ctx context.Context, svc runShowService, runID string, initialRun *tfe.Run, pollInterval time.Duration) error {
-	// watch モードでは変更差分を取得しない（ポーリングごとに取得するのは非効率）
+	// In watch mode, skip fetching resource changes (inefficient to fetch on every poll)
 	var resourceChanges []resourceChange
 
-	// すでに終了ステータスなら初回表示のみで終了
+	// If already in terminal status, display only the initial output and exit
 	if isTerminalStatus(initialRun.Status) {
-		// 終了ステータスの場合のみ変更差分を取得
+		// Fetch resource changes only when terminal status is reached
 		if initialRun.Plan != nil && initialRun.HasChanges {
 			planJSONBytes, err := svc.ReadPlanJSONOutput(ctx, initialRun.Plan.ID)
 			if err == nil {
@@ -515,7 +515,7 @@ func watchRun(ctx context.Context, svc runShowService, runID string, initialRun 
 		return displayRun(initialRun, resourceChanges)
 	}
 
-	// JSON モード以外の場合、初回表示と区切り線
+	// In non-JSON mode, display initial output and separator
 	if !viper.GetBool("json") {
 		if err := displayRun(initialRun, nil); err != nil {
 			return err
@@ -533,19 +533,19 @@ func watchRun(ctx context.Context, svc runShowService, runID string, initialRun 
 		case <-ticker.C:
 			r, err := svc.ReadRun(ctx, runID)
 			if err != nil {
-				// 一時的なエラーの可能性があるため、警告を出力して継続
+				// Possibly a transient error; print warning and continue
 				fmt.Fprintf(os.Stderr, "Warning: failed to read run: %v\n", err)
 				continue
 			}
 
-			// ポーリングごとにステータスを出力
+			// Output status on each poll
 			if !viper.GetBool("json") {
 				_, _ = fmt.Fprintln(os.Stdout, formatStatusUpdate(time.Now(), r.Status))
 			}
 
-			// 終了ステータスに到達したら最終結果を表示して終了
+			// When terminal status is reached, display final result and exit
 			if isTerminalStatus(r.Status) {
-				// 終了ステータスになったら変更差分を取得
+				// Fetch resource changes when terminal status is reached
 				var finalChanges []resourceChange
 				if r.Plan != nil && r.HasChanges {
 					planJSONBytes, err := svc.ReadPlanJSONOutput(ctx, r.Plan.ID)
