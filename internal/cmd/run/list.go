@@ -84,7 +84,7 @@ func runRunList(svc runListService, org, workspaceName, status string) error {
 		ListOptions: tfe.ListOptions{
 			PageSize: 100,
 		},
-		// デフォルトでは plan_only が除外されるため、全 operation タイプを明示的に指定
+		// plan_only is excluded by default, so explicitly specify all operation types
 		Operation: "plan_and_apply,plan_only,refresh_only,destroy,empty_apply,save_plan",
 		Status:    status,
 	}

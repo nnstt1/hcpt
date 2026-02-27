@@ -2,108 +2,108 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## プロジェクト概要
+## Project Overview
 
-HCP Terraform の設定やワークスペース情報を取得する CLI ツール。
+A CLI tool to retrieve HCP Terraform configurations and workspace information.
 
-## 技術スタック
+## Tech Stack
 
-- **言語**: Go
-- **モジュール名**: `github.com/nnstt1/hcpt`
-- **CLI フレームワーク**: [Cobra](https://github.com/spf13/cobra)
-- **設定管理**: [Viper](https://github.com/spf13/viper)
-- **API クライアント**:
-  - [go-tfe](https://github.com/hashicorp/go-tfe) (HCP Terraform / Terraform Enterprise 公式 Go クライアント)
-  - [go-github](https://github.com/google/go-github) (GitHub API v3 クライアント)
+- **Language**: Go
+- **Module name**: `github.com/nnstt1/hcpt`
+- **CLI framework**: [Cobra](https://github.com/spf13/cobra)
+- **Configuration management**: [Viper](https://github.com/spf13/viper)
+- **API clients**:
+  - [go-tfe](https://github.com/hashicorp/go-tfe) (Official Go client for HCP Terraform / Terraform Enterprise)
+  - [go-github](https://github.com/google/go-github) (GitHub API v3 client)
 - **Linter**: golangci-lint
-- **リリース**: GoReleaser
+- **Release**: GoReleaser
 - **CI**: GitHub Actions
 
-## コマンド体系
+## Command Structure
 
 ```
 hcpt
-├── org list          # Organization 一覧を取得
-├── org show          # Organization 詳細・契約プラン・Entitlements を表示
-├── project list      # Organization 内の Project 一覧を取得
-├── drift list        # ドリフトしているワークスペース一覧（--all で全件）
-├── drift show        # 特定ワークスペースのドリフト検出詳細
-├── workspace list    # Organization 内の Workspace 一覧を取得
-├── workspace show    # 特定の Workspace の詳細情報を表示
-├── run list          # Workspace の Run 履歴を表示（--status でフィルター可）
-├── run show          # Run の詳細情報を表示（--watch で完了まで監視）
-├── variable list     # Workspace の変数一覧を表示
-├── variable set      # 変数の作成/更新 (upsert)
-├── variable delete   # 変数の削除
-├── config set        # 設定値の保存
-├── config get        # 設定値の取得
-└── config list       # 全設定値の一覧
+├── org list          # List organizations
+├── org show          # Show organization details, contract plan, and entitlements
+├── project list      # List projects within an organization
+├── drift list        # List drifted workspaces (--all for all results)
+├── drift show        # Show drift detection details for a specific workspace
+├── workspace list    # List workspaces within an organization
+├── workspace show    # Show details of a specific workspace
+├── run list          # Show run history for a workspace (filterable with --status)
+├── run show          # Show run details (--watch to monitor until completion)
+├── variable list     # List variables in a workspace
+├── variable set      # Create/update a variable (upsert)
+├── variable delete   # Delete a variable
+├── config set        # Save a configuration value
+├── config get        # Get a configuration value
+└── config list       # List all configuration values
 ```
 
-## 出力形式
+## Output Format
 
-- デフォルト: テーブル形式
-- `--json` フラグ: JSON 形式
+- Default: table format
+- `--json` flag: JSON format
 
-## 認証
+## Authentication
 
-- 環境変数 `TFE_TOKEN` または設定ファイル `~/.hcpt.yaml` から API トークンを読み込み
-- Viper で環境変数と設定ファイルの優先順位を管理（環境変数 > 設定ファイル）
+- API token is read from the `TFE_TOKEN` environment variable or `~/.hcpt.yaml` config file
+- Viper manages priority between environment variables and config file (env vars > config file)
 
-## GitHub 連携
+## GitHub Integration
 
-- `run show` コマンドに `--pr` と `--repo` フラグを追加
-- GitHub PR の commit status から HCP Terraform の run-id を自動取得
-- トークン解決順序: `gh auth token` → `GITHUB_TOKEN` 環境変数 → `~/.hcpt.yaml` の `github-token`
-- 複数ワークスペースの場合は `--workspace` で特定
+- `--pr` and `--repo` flags added to the `run show` command
+- Automatically retrieves HCP Terraform run-id from GitHub PR commit status
+- Token resolution order: `gh auth token` → `GITHUB_TOKEN` env var → `github-token` in `~/.hcpt.yaml`
+- Use `--workspace` to specify a workspace when multiple are present
 
-## Git ブランチ運用
+## Git Branch Workflow
 
-- Issue 対応時は `feature/<issue番号>-<概要>` ブランチを作成して作業する
-- 実装完了後に PR を作成し、main ブランチへマージする
-- main ブランチへ直接コミット・プッシュしない
+- For issues, create a `feature/<issue-number>-<summary>` branch and work there
+- After implementation, create a PR and merge into the main branch
+- Do not commit or push directly to the main branch
 
-## ビルド・開発コマンド
+## Build & Development Commands
 
 ```bash
-# ビルド
+# Build
 go build -o hcpt .
 
-# テスト
+# Test
 go test ./...
 
-# 単一パッケージのテスト
+# Test a single package
 go test ./internal/cmd/workspace/
 
-# 単一テストの実行
+# Run a single test
 go test ./internal/cmd/workspace/ -run TestWorkspaceList
 
 # Lint
 golangci-lint run
 
-# 依存関係の整理
+# Tidy dependencies
 go mod tidy
 ```
 
-## アーキテクチャ
+## Architecture
 
 ```
-├── main.go                  # エントリポイント
+├── main.go                  # Entry point
 ├── internal/
-│   ├── cmd/                 # Cobra コマンド定義
-│   │   ├── root.go          # ルートコマンド（Viper 初期化含む）
-│   │   ├── drift/           # drift サブコマンド
-│   │   ├── org/             # org サブコマンド
-│   │   ├── workspace/       # workspace サブコマンド
-│   │   └── run/             # run サブコマンド
-│   ├── client/              # go-tfe クライアントのラッパー
-│   └── output/              # テーブル / JSON 出力のフォーマッタ
-├── .golangci.yml            # golangci-lint 設定
-├── .goreleaser.yml          # GoReleaser 設定
+│   ├── cmd/                 # Cobra command definitions
+│   │   ├── root.go          # Root command (includes Viper initialization)
+│   │   ├── drift/           # drift subcommand
+│   │   ├── org/             # org subcommand
+│   │   ├── workspace/       # workspace subcommand
+│   │   └── run/             # run subcommand
+│   ├── client/              # Wrapper for go-tfe client
+│   └── output/              # Formatter for table/JSON output
+├── .golangci.yml            # golangci-lint configuration
+├── .goreleaser.yml          # GoReleaser configuration
 └── .github/workflows/       # GitHub Actions CI
 ```
 
-- `internal/` 配下にコードを配置し、外部パッケージからのインポートを防ぐ
-- 各サブコマンドはディレクトリで分離し、コマンド登録は `init()` で行う
-- `internal/client/` で go-tfe クライアントの初期化とトークン取得を一元管理
-- `internal/output/` でテーブル/JSON の出力切り替えロジックを共通化
+- Code is placed under `internal/` to prevent imports from external packages
+- Each subcommand is isolated in its own directory; command registration is done in `init()`
+- `internal/client/` centralizes go-tfe client initialization and token retrieval
+- `internal/output/` provides shared logic for switching between table and JSON output
