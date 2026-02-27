@@ -140,6 +140,15 @@ hcpt run show --pr 42 --repo owner/repo --watch
 
 # GitHub PR から Run を表示（monorepo で複数ワークスペースがある場合）
 hcpt run show --pr 42 --repo owner/repo -w my-workspace
+
+# Apply ログを表示
+hcpt run logs run-abc123
+
+# エラー行のみ表示
+hcpt run logs run-abc123 --error-only
+
+# Workspace の最新 Run の Apply ログを表示
+hcpt run logs --org my-org -w my-workspace
 ```
 
 ### Variable
