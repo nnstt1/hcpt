@@ -53,6 +53,13 @@ func (m *mockRunListService) ReadRun(_ context.Context, _ string) (*tfe.Run, err
 	return m.run, nil
 }
 
+func (m *mockRunListService) ReadRunWithApply(_ context.Context, _ string) (*tfe.Run, error) {
+	if m.readRunErr != nil {
+		return nil, m.readRunErr
+	}
+	return m.run, nil
+}
+
 func TestRunList_Table(t *testing.T) {
 	viper.Reset()
 	viper.Set("json", false)
