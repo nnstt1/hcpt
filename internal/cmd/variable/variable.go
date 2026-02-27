@@ -15,6 +15,7 @@ func NewCmdVariable() *cobra.Command {
 	cmd.AddCommand(newCmdVariableList())
 	cmd.AddCommand(newCmdVariableSet())
 	cmd.AddCommand(newCmdVariableDelete())
+	cmd.AddCommand(newCmdVariableImport())
 
 	return cmd
 }

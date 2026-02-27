@@ -9,6 +9,7 @@ require (
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
+	github.com/zclconf/go-cty v1.16.3
 	go.yaml.in/yaml/v3 v3.0.4
 )
 
@@ -33,7 +34,6 @@ require (
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
-	github.com/zclconf/go-cty v1.16.3 // indirect
 	golang.org/x/mod v0.26.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect
