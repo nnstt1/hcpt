@@ -6,6 +6,18 @@ A CLI tool for retrieving HCP Terraform configurations and workspace information
 
 ## Installation
 
+### install.sh (macOS / Linux)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/nnstt1/hcpt/main/install.sh | sh
+```
+
+To install to a custom directory, set the `INSTALL_DIR` environment variable:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/nnstt1/hcpt/main/install.sh | INSTALL_DIR=~/.local/bin sh
+```
+
 ### Go install
 
 ```bash
