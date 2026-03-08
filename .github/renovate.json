@@ -18,12 +18,14 @@
   "packageRules": [
     {
       "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "groupName": "Go dependencies",
       "semanticCommitType": "chore",
       "semanticCommitScope": "deps"
     },
     {
       "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "groupName": "GitHub Actions",
       "semanticCommitType": "ci",
       "semanticCommitScope": "actions"
