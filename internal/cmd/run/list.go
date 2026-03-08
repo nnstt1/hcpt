@@ -51,10 +51,10 @@ func newCmdRunListWith(clientFn runListClientFactory) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			org := viper.GetString("org")
 			if org == "" {
-				return fmt.Errorf("organization is required: use --org flag, TFE_ORG env, or set 'org' in config file")
+				return errOrgRequired
 			}
 			if workspaceName == "" {
-				return fmt.Errorf("workspace is required: use --workspace/-w flag")
+				return errWorkspaceRequired
 			}
 
 			svc, err := clientFn()

@@ -3,6 +3,7 @@ package org
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 
@@ -58,20 +59,20 @@ func newCmdOrgShowWith(clientFn orgShowClientFactory) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			org := viper.GetString("org")
 			if org == "" {
-				return fmt.Errorf("organization is required: use --org flag, TFE_ORG env, or set 'org' in config file")
+				return errOrgRequired
 			}
 
 			svc, err := clientFn()
 			if err != nil {
 				return err
 			}
-			return runOrgShow(svc, org)
+			return runOrgShow(svc, org, cmd.ErrOrStderr())
 		},
 	}
 	return cmd
 }
 
-func runOrgShow(svc orgShowService, orgName string) error {
+func runOrgShow(svc orgShowService, orgName string, errWriter io.Writer) error {
 	ctx := context.Background()
 
 	org, err := svc.ReadOrganization(ctx, orgName)
@@ -79,8 +80,14 @@ func runOrgShow(svc orgShowService, orgName string) error {
 		return fmt.Errorf("failed to read organization %q: %w", orgName, err)
 	}
 
-	sub, _ := svc.ReadSubscription(ctx, orgName)
-	entitlements, _ := svc.ReadEntitlements(ctx, orgName)
+	sub, err := svc.ReadSubscription(ctx, orgName)
+	if err != nil {
+		_, _ = fmt.Fprintf(errWriter, "warning: failed to read subscription: %v\n", err)
+	}
+	entitlements, err := svc.ReadEntitlements(ctx, orgName)
+	if err != nil {
+		_, _ = fmt.Fprintf(errWriter, "warning: failed to read entitlements: %v\n", err)
+	}
 
 	if viper.GetBool("json") {
 		j := orgShowJSON{

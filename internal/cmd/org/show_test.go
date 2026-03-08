@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -111,7 +112,7 @@ func TestOrgShow_Table_Output(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runOrgShow(mock, "test-org")
+	err := runOrgShow(mock, "test-org", io.Discard)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -156,7 +157,7 @@ func TestOrgShow_JSON(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runOrgShow(mock, "test-org")
+	err := runOrgShow(mock, "test-org", io.Discard)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -269,7 +270,7 @@ func TestOrgShow_ReadSubscriptionError_NonFatal(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runOrgShow(mock, "test-org")
+	err := runOrgShow(mock, "test-org", io.Discard)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -315,7 +316,7 @@ func TestOrgShow_ReadEntitlementsError_NonFatal(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runOrgShow(mock, "test-org")
+	err := runOrgShow(mock, "test-org", io.Discard)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -358,7 +359,7 @@ func TestOrgShow_BothSubAndEntitlementsError_NonFatal(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runOrgShow(mock, "test-org")
+	err := runOrgShow(mock, "test-org", io.Discard)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -398,7 +399,7 @@ func TestOrgShow_SubscriptionError_JSON(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runOrgShow(mock, "test-org")
+	err := runOrgShow(mock, "test-org", io.Discard)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -419,5 +420,71 @@ func TestOrgShow_SubscriptionError_JSON(t *testing.T) {
 	}
 	if strings.Contains(got, `"entitlements"`) {
 		t.Errorf("entitlements should be omitted from JSON when failed, got:\n%s", got)
+	}
+}
+
+func TestOrgShow_ReadSubscriptionError_StderrWarning(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+	viper.Set("org", "test-org")
+
+	mock := &mockOrgShowService{
+		org: &tfe.Organization{
+			Name:      "test-org",
+			Email:     "admin@example.com",
+			CreatedAt: time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
+		},
+		subscriptionErr: fmt.Errorf("subscription 403"),
+	}
+
+	var errBuf bytes.Buffer
+	var err error
+	captureOutput(t, func() {
+		err = runOrgShow(mock, "test-org", &errBuf)
+	})
+
+	if err != nil {
+		t.Fatalf("expected no error (non-fatal), got: %v", err)
+	}
+	if !strings.Contains(errBuf.String(), "warning: failed to read subscription") {
+		t.Errorf("expected subscription warning on stderr, got: %q", errBuf.String())
+	}
+	if !strings.Contains(errBuf.String(), "subscription 403") {
+		t.Errorf("expected error detail in warning, got: %q", errBuf.String())
+	}
+}
+
+func TestOrgShow_ReadEntitlementsError_StderrWarning(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+	viper.Set("org", "test-org")
+
+	mock := &mockOrgShowService{
+		org: &tfe.Organization{
+			Name:      "test-org",
+			Email:     "admin@example.com",
+			CreatedAt: time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
+		},
+		subscription: &client.SubscriptionInfo{
+			PlanName: "Free",
+			IsActive: true,
+		},
+		entitlementsErr: fmt.Errorf("entitlements 403"),
+	}
+
+	var errBuf bytes.Buffer
+	var err error
+	captureOutput(t, func() {
+		err = runOrgShow(mock, "test-org", &errBuf)
+	})
+
+	if err != nil {
+		t.Fatalf("expected no error (non-fatal), got: %v", err)
+	}
+	if !strings.Contains(errBuf.String(), "warning: failed to read entitlements") {
+		t.Errorf("expected entitlements warning on stderr, got: %q", errBuf.String())
+	}
+	if !strings.Contains(errBuf.String(), "entitlements 403") {
+		t.Errorf("expected error detail in warning, got: %q", errBuf.String())
 	}
 }

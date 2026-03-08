@@ -37,7 +37,7 @@ func newCmdDriftListWith(clientFn driftListClientFactory) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			org := viper.GetString("org")
 			if org == "" {
-				return fmt.Errorf("organization is required: use --org flag, TFE_ORG env, or set 'org' in config file")
+				return errOrgRequired
 			}
 
 			svc, err := clientFn()
