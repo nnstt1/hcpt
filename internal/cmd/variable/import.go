@@ -47,10 +47,10 @@ func newCmdVariableImportWith(clientFn variableImportClientFactory) *cobra.Comma
 			filename := args[0]
 			org := viper.GetString("org")
 			if org == "" {
-				return fmt.Errorf("organization is required: use --org flag, TFE_ORG env, or set 'org' in config file")
+				return fmt.Errorf(errOrgRequired)
 			}
 			if workspaceName == "" {
-				return fmt.Errorf("workspace is required: use --workspace/-w flag")
+				return fmt.Errorf(errWorkspaceRequired)
 			}
 
 			svc, err := clientFn()

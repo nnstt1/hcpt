@@ -64,6 +64,56 @@ hcpt
 - After implementation, create a PR and merge into the main branch
 - Do not commit or push directly to the main branch
 
+## Release Flow
+
+Releases are automated via GoReleaser triggered by a version tag push.
+
+### Version Numbering
+
+Follow [Semantic Versioning](https://semver.org/):
+- **Minor version bump** (`v0.X.0`): New commands or features added
+- **Patch version bump** (`v0.x.Y`): Bug fixes or dependency updates only
+
+### Steps
+
+When asked to release a new version, perform all steps below without asking for confirmation:
+
+1. Check the latest tag: `git tag --sort=-version:refname | head -1`
+2. Review commits since the last tag: `git log <last-tag>..HEAD --oneline`
+3. Determine the next version based on the changes
+4. Create and push the tag:
+   ```bash
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
+   ```
+5. Create a GitHub Release with release notes:
+   ```bash
+   gh release create vX.Y.Z --title "vX.Y.Z" --notes "..."
+   ```
+
+### Release Notes Format
+
+```markdown
+## Highlights
+
+<One-sentence summary of notable changes>
+
+## What's Changed
+
+### New Features
+- **`command name`**: Description (#PR)
+
+### Improvements
+- Description (#PR)
+
+### Dependency Updates
+- `package` updated to vX.Y.Z (#PR)
+
+## Full Changelog
+
+https://github.com/nnstt1/hcpt/compare/vPREV...vNEXT
+```
+
 ## Build & Development Commands
 
 ```bash

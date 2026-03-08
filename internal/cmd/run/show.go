@@ -82,7 +82,7 @@ func newCmdRunShowWith(clientFn runShowClientFactory) *cobra.Command {
 
 			org := viper.GetString("org")
 			if org == "" && workspaceName != "" {
-				return fmt.Errorf("organization is required: use --org flag, TFE_ORG env, or set 'org' in config file")
+				return fmt.Errorf(errOrgRequired)
 			}
 
 			// Validate flag combinations
