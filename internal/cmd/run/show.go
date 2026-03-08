@@ -82,7 +82,7 @@ func newCmdRunShowWith(clientFn runShowClientFactory) *cobra.Command {
 
 			org := viper.GetString("org")
 			if org == "" && workspaceName != "" {
-				return fmt.Errorf(errOrgRequired)
+				return errOrgRequired
 			}
 
 			// Validate flag combinations

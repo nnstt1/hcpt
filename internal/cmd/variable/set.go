@@ -43,10 +43,10 @@ func newCmdVariableSetWith(clientFn variableSetClientFactory) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			org := viper.GetString("org")
 			if org == "" {
-				return fmt.Errorf(errOrgRequired)
+				return errOrgRequired
 			}
 			if workspaceName == "" {
-				return fmt.Errorf(errWorkspaceRequired)
+				return errWorkspaceRequired
 			}
 
 			cat := tfe.CategoryTerraform

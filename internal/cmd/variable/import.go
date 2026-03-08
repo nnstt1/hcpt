@@ -47,10 +47,10 @@ func newCmdVariableImportWith(clientFn variableImportClientFactory) *cobra.Comma
 			filename := args[0]
 			org := viper.GetString("org")
 			if org == "" {
-				return fmt.Errorf(errOrgRequired)
+				return errOrgRequired
 			}
 			if workspaceName == "" {
-				return fmt.Errorf(errWorkspaceRequired)
+				return errWorkspaceRequired
 			}
 
 			svc, err := clientFn()

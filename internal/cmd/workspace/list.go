@@ -32,7 +32,7 @@ func newCmdWorkspaceListWith(clientFn wsListClientFactory) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			org := viper.GetString("org")
 			if org == "" {
-				return fmt.Errorf(errOrgRequired)
+				return errOrgRequired
 			}
 
 			svc, err := clientFn()

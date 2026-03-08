@@ -59,7 +59,7 @@ func newCmdOrgShowWith(clientFn orgShowClientFactory) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			org := viper.GetString("org")
 			if org == "" {
-				return fmt.Errorf(errOrgRequired)
+				return errOrgRequired
 			}
 
 			svc, err := clientFn()
@@ -82,11 +82,11 @@ func runOrgShow(svc orgShowService, orgName string, errWriter io.Writer) error {
 
 	sub, err := svc.ReadSubscription(ctx, orgName)
 	if err != nil {
-		fmt.Fprintf(errWriter, "warning: failed to read subscription: %v\n", err)
+		_, _ = fmt.Fprintf(errWriter, "warning: failed to read subscription: %v\n", err)
 	}
 	entitlements, err := svc.ReadEntitlements(ctx, orgName)
 	if err != nil {
-		fmt.Fprintf(errWriter, "warning: failed to read entitlements: %v\n", err)
+		_, _ = fmt.Fprintf(errWriter, "warning: failed to read entitlements: %v\n", err)
 	}
 
 	if viper.GetBool("json") {
