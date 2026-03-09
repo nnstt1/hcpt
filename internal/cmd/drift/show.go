@@ -189,9 +189,14 @@ type attributeDiff struct {
 }
 
 // flattenMap recursively flattens a nested map into dot-notation keys.
+// Empty maps and empty arrays are stored as leaf values to distinguish them from nil.
 func flattenMap(prefix string, value interface{}, result map[string]interface{}) {
 	switch v := value.(type) {
 	case map[string]interface{}:
+		if len(v) == 0 && prefix != "" {
+			result[prefix] = value
+			return
+		}
 		for k, val := range v {
 			key := k
 			if prefix != "" {
@@ -200,6 +205,10 @@ func flattenMap(prefix string, value interface{}, result map[string]interface{})
 			flattenMap(key, val, result)
 		}
 	case []interface{}:
+		if len(v) == 0 && prefix != "" {
+			result[prefix] = value
+			return
+		}
 		for i, val := range v {
 			key := fmt.Sprintf("%s.%d", prefix, i)
 			flattenMap(key, val, result)
@@ -239,10 +248,16 @@ func computeDiffs(before, after map[string]interface{}) []attributeDiff {
 		aStr := formatDiffValue(aVal)
 
 		if !bOk {
-			// Added
+			// Added (skip if value is nil — no real change)
+			if aVal == nil {
+				continue
+			}
 			diffs = append(diffs, attributeDiff{Key: k, Before: "(null)", After: aStr, BeforeRaw: nil, AfterRaw: aVal})
 		} else if !aOk {
-			// Removed
+			// Removed (skip if value is nil — no real change)
+			if bVal == nil {
+				continue
+			}
 			diffs = append(diffs, attributeDiff{Key: k, Before: bStr, After: "(null)", BeforeRaw: bVal, AfterRaw: nil})
 		} else if bStr != aStr {
 			// Changed
@@ -272,6 +287,16 @@ func formatDiffValue(v interface{}) string {
 		return fmt.Sprintf("%g", val)
 	case bool:
 		return strconv.FormatBool(val)
+	case []interface{}:
+		if len(val) == 0 {
+			return "[]"
+		}
+		return fmt.Sprintf("%v", val)
+	case map[string]interface{}:
+		if len(val) == 0 {
+			return "{}"
+		}
+		return fmt.Sprintf("%v", val)
 	default:
 		return fmt.Sprintf("%v", val)
 	}

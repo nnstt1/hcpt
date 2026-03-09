@@ -666,6 +666,34 @@ func TestComputeDiffs(t *testing.T) {
 			wantKeys:  nil,
 			wantCount: 0,
 		},
+		{
+			name:      "added nil value ignored",
+			before:    map[string]interface{}{},
+			after:     map[string]interface{}{"key": nil},
+			wantKeys:  nil,
+			wantCount: 0,
+		},
+		{
+			name:      "removed nil value ignored",
+			before:    map[string]interface{}{"key": nil},
+			after:     map[string]interface{}{},
+			wantKeys:  nil,
+			wantCount: 0,
+		},
+		{
+			name:      "nil vs empty array",
+			before:    map[string]interface{}{"tags": nil},
+			after:     map[string]interface{}{"tags": []interface{}{}},
+			wantKeys:  []string{"tags"},
+			wantCount: 1,
+		},
+		{
+			name:      "empty array vs nil",
+			before:    map[string]interface{}{"tags": []interface{}{}},
+			after:     map[string]interface{}{"tags": nil},
+			wantKeys:  []string{"tags"},
+			wantCount: 1,
+		},
 	}
 
 	for _, tt := range tests {
