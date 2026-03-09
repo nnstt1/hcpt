@@ -136,6 +136,15 @@ golangci-lint run
 go mod tidy
 ```
 
+## Assessment JSON Output Parsing
+
+The assessment json-output endpoint (`/api/v2/assessment-results/{id}/json-output`) may store drift information in different fields depending on the workspace:
+
+- **`resource_drift`**: Primary field for drift detection results (preferred)
+- **`resource_changes`**: Fallback field; some workspaces only have drift info here
+
+The parser checks `resource_drift` first. If empty, it falls back to `resource_changes` and excludes entries with `actions: ["no-op"]`.
+
 ## Architecture
 
 ```
