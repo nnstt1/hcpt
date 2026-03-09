@@ -21,14 +21,14 @@ func TestVariableSet_Create(t *testing.T) {
 		createVar: &tfe.Variable{Key: "NEW_VAR"},
 	}
 
-	oldStdout := os.Stdout
+	oldStderr := os.Stderr
 	r, w, _ := os.Pipe()
-	os.Stdout = w
+	os.Stderr = w
 
 	err := runVariableSet(mock, "test-org", "my-ws", "NEW_VAR", "new-value", tfe.CategoryTerraform, false, false, "")
 
 	_ = w.Close()
-	os.Stdout = oldStdout
+	os.Stderr = oldStderr
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -60,14 +60,14 @@ func TestVariableSet_Update(t *testing.T) {
 		updateVar: &tfe.Variable{Key: "EXISTING_VAR"},
 	}
 
-	oldStdout := os.Stdout
+	oldStderr := os.Stderr
 	r, w, _ := os.Pipe()
-	os.Stdout = w
+	os.Stderr = w
 
 	err := runVariableSet(mock, "test-org", "my-ws", "EXISTING_VAR", "new-value", tfe.CategoryTerraform, false, false, "")
 
 	_ = w.Close()
-	os.Stdout = oldStdout
+	os.Stderr = oldStderr
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

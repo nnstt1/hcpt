@@ -3,6 +3,7 @@ package variable
 import (
 	"context"
 	"fmt"
+	"os"
 
 	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/cobra"
@@ -83,7 +84,7 @@ func runVariableDelete(svc variableDeleteService, org, workspaceName, key string
 			if err := svc.DeleteVariable(ctx, ws.ID, v.ID); err != nil {
 				return fmt.Errorf("failed to delete variable %q: %w", key, err)
 			}
-			fmt.Printf("Deleted variable %q\n", key)
+			fmt.Fprintf(os.Stderr, "Deleted variable %q\n", key)
 			return nil
 		}
 	}

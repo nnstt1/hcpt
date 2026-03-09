@@ -3,6 +3,7 @@ package variable
 import (
 	"context"
 	"fmt"
+	"os"
 
 	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/cobra"
@@ -99,7 +100,7 @@ func runVariableSet(svc variableSetService, org, workspaceName, key, value strin
 			if err != nil {
 				return fmt.Errorf("failed to update variable %q: %w", key, err)
 			}
-			fmt.Printf("Updated variable %q\n", key)
+			fmt.Fprintf(os.Stderr, "Updated variable %q\n", key)
 			return nil
 		}
 	}
@@ -117,6 +118,6 @@ func runVariableSet(svc variableSetService, org, workspaceName, key, value strin
 	if err != nil {
 		return fmt.Errorf("failed to create variable %q: %w", key, err)
 	}
-	fmt.Printf("Created variable %q\n", key)
+	fmt.Fprintf(os.Stderr, "Created variable %q\n", key)
 	return nil
 }
