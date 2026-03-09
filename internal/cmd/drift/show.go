@@ -305,6 +305,7 @@ func printResourceDiffs(w *os.File, resources []client.DriftedResource) {
 				symbol = "~"
 			}
 			padding := strings.Repeat(" ", maxKeyLen-len(d.Key))
-			fmt.Fprintf(w, "  %s %s:%s  %s => %s\n", symbol, d.Key, padding, d.Before, d.After)		}
+			fmt.Fprintf(w, "  %s %s:%s  %s => %s\n", symbol, d.Key, padding, d.Before, d.After)
+		}
 	}
 }
