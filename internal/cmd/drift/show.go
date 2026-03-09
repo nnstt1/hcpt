@@ -92,7 +92,7 @@ func runDriftShow(svc driftShowService, org, name string, verbose bool) error {
 
 	// Fetch drifted resource details if assessment shows drift
 	var driftedResources []client.DriftedResource
-	if result != nil && result.Drifted && result.ID != "" {
+	if result != nil && (result.Drifted || result.ResourcesDrifted > 0) && result.ID != "" {
 		driftedResources, err = svc.ReadAssessmentDriftDetails(ctx, result.ID)
 		if err != nil {
 			// Non-fatal: show summary even if details fail

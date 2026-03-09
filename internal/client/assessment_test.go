@@ -432,3 +432,75 @@ func TestParseAssessmentJSONOutput_NoBeforeAfter(t *testing.T) {
 		t.Errorf("expected After to be nil, got %v", resources[0].After)
 	}
 }
+
+func TestParseAssessmentJSONOutput_FallbackToResourceChanges(t *testing.T) {
+	body := []byte(`{
+		"resource_changes": [
+			{
+				"address": "azurerm_function_app.main",
+				"type": "azurerm_function_app",
+				"name": "main",
+				"change": {
+					"actions": ["update"],
+					"before": {"site_config": {"min_tls_version": "1.2"}},
+					"after":  {"site_config": {"min_tls_version": "1.3"}}
+				}
+			},
+			{
+				"address": "azurerm_cdn_frontdoor.main",
+				"type": "azurerm_cdn_frontdoor",
+				"name": "main",
+				"change": {"actions": ["no-op"]}
+			}
+		]
+	}`)
+
+	resources, err := parseAssessmentJSONOutput(body)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resources) != 1 {
+		t.Fatalf("expected 1 resource (no-op excluded), got %d", len(resources))
+	}
+	if resources[0].Address != "azurerm_function_app.main" {
+		t.Errorf("expected address 'azurerm_function_app.main', got %q", resources[0].Address)
+	}
+	if resources[0].Action != "update" {
+		t.Errorf("expected action 'update', got %q", resources[0].Action)
+	}
+	if resources[0].Before == nil {
+		t.Error("expected Before to be non-nil")
+	}
+}
+
+func TestParseAssessmentJSONOutput_ResourceDriftTakesPriority(t *testing.T) {
+	body := []byte(`{
+		"resource_drift": [
+			{
+				"address": "aws_instance.drift",
+				"type": "aws_instance",
+				"name": "drift",
+				"change": {"actions": ["update"]}
+			}
+		],
+		"resource_changes": [
+			{
+				"address": "aws_instance.change",
+				"type": "aws_instance",
+				"name": "change",
+				"change": {"actions": ["update"]}
+			}
+		]
+	}`)
+
+	resources, err := parseAssessmentJSONOutput(body)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resources) != 1 {
+		t.Fatalf("expected 1 resource, got %d", len(resources))
+	}
+	if resources[0].Address != "aws_instance.drift" {
+		t.Errorf("expected resource_drift to take priority, got %q", resources[0].Address)
+	}
+}
