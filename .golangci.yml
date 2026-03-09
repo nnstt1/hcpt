@@ -9,6 +9,12 @@ linters:
     - unused
     - ineffassign
     - misspell
+  settings:
+    errcheck:
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
 
 formatters:
   enable:

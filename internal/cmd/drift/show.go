@@ -108,7 +108,7 @@ func runDriftShow(svc driftShowService, org, name string, verbose bool) error {
 	output.PrintKeyValue(os.Stdout, pairs)
 
 	if len(driftedResources) > 0 {
-		fmt.Fprintln(os.Stdout) //nolint:errcheck
+		fmt.Fprintln(os.Stdout)
 		headers := []string{"RESOURCE", "TYPE", "ACTION"}
 		rows := make([][]string, 0, len(driftedResources))
 		for _, r := range driftedResources {
@@ -285,8 +285,7 @@ func printResourceDiffs(w *os.File, resources []client.DriftedResource) {
 			continue
 		}
 
-		fmt.Fprintf(w, "\n--- %s (%s) ---\n", r.Address, r.Action) //nolint:errcheck
-
+		fmt.Fprintf(w, "\n--- %s (%s) ---\n", r.Address, r.Action)
 		// Find max key length for alignment
 		maxKeyLen := 0
 		for _, d := range diffs {
@@ -306,7 +305,6 @@ func printResourceDiffs(w *os.File, resources []client.DriftedResource) {
 				symbol = "~"
 			}
 			padding := strings.Repeat(" ", maxKeyLen-len(d.Key))
-			fmt.Fprintf(w, "  %s %s:%s  %s => %s\n", symbol, d.Key, padding, d.Before, d.After) //nolint:errcheck
-		}
+			fmt.Fprintf(w, "  %s %s:%s  %s => %s\n", symbol, d.Key, padding, d.Before, d.After)		}
 	}
 }
