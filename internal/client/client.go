@@ -74,6 +74,8 @@ type DriftedResource struct {
 	Type    string
 	Name    string
 	Action  string
+	Before  map[string]interface{}
+	After   map[string]interface{}
 }
 
 // AssessmentService provides operations to read workspace assessment results.
@@ -482,7 +484,9 @@ func parseAssessmentJSONOutput(body []byte) ([]DriftedResource, error) {
 			Type    string `json:"type"`
 			Name    string `json:"name"`
 			Change  struct {
-				Actions []string `json:"actions"`
+				Actions []string               `json:"actions"`
+				Before  map[string]interface{} `json:"before"`
+				After   map[string]interface{} `json:"after"`
 			} `json:"change"`
 		} `json:"resource_drift"`
 	}
@@ -502,6 +506,8 @@ func parseAssessmentJSONOutput(body []byte) ([]DriftedResource, error) {
 			Type:    r.Type,
 			Name:    r.Name,
 			Action:  action,
+			Before:  r.Change.Before,
+			After:   r.Change.After,
 		})
 	}
 

@@ -87,7 +87,7 @@ func TestDriftShow_Table(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runDriftShow(mock, "test-org", "my-workspace")
+	err := runDriftShow(mock, "test-org", "my-workspace", false)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -146,7 +146,7 @@ func TestDriftShow_JSON(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runDriftShow(mock, "test-org", "my-workspace")
+	err := runDriftShow(mock, "test-org", "my-workspace", false)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -200,7 +200,7 @@ func TestDriftShow_NoDrift_NoResourceTable(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runDriftShow(mock, "test-org", "my-workspace")
+	err := runDriftShow(mock, "test-org", "my-workspace", false)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -237,7 +237,7 @@ func TestDriftShow_NotReady(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runDriftShow(mock, "test-org", "my-workspace")
+	err := runDriftShow(mock, "test-org", "my-workspace", false)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -287,7 +287,7 @@ func TestDriftShow_DriftDetailsError_NonFatal(t *testing.T) {
 	rErr, wErr, _ := os.Pipe()
 	os.Stderr = wErr
 
-	err := runDriftShow(mock, "test-org", "my-workspace")
+	err := runDriftShow(mock, "test-org", "my-workspace", false)
 
 	_ = w.Close()
 	_ = wErr.Close()
@@ -441,5 +441,251 @@ func TestDriftShow_NoArgs(t *testing.T) {
 	err := cmd.Execute()
 	if err == nil {
 		t.Fatal("expected error, got nil")
+	}
+}
+
+func mockWithDiffData() *mockDriftShowService {
+	return &mockDriftShowService{
+		workspace: &tfe.Workspace{
+			Name: "my-workspace",
+			ID:   "ws-abc123",
+		},
+		assessments: map[string]*client.AssessmentResult{
+			"ws-abc123": {
+				ID:                 "asmnt-001",
+				Drifted:            true,
+				Succeeded:          true,
+				ResourcesDrifted:   1,
+				ResourcesUndrifted: 5,
+				CreatedAt:          "2025-01-20T10:30:00.000Z",
+			},
+		},
+		driftDetails: map[string][]client.DriftedResource{
+			"asmnt-001": {
+				{
+					Address: "aws_security_group.web",
+					Type:    "aws_security_group",
+					Name:    "web",
+					Action:  "update",
+					Before: map[string]interface{}{
+						"ingress": []interface{}{
+							map[string]interface{}{
+								"cidr_blocks": []interface{}{"10.0.0.0/16"},
+								"from_port":   float64(443),
+							},
+						},
+						"tags": map[string]interface{}{
+							"env": "prod",
+						},
+						"old_field": "removed",
+					},
+					After: map[string]interface{}{
+						"ingress": []interface{}{
+							map[string]interface{}{
+								"cidr_blocks": []interface{}{"0.0.0.0/0"},
+								"from_port":   float64(443),
+							},
+						},
+						"tags": map[string]interface{}{
+							"env":     "staging",
+							"version": "2",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func TestDriftShow_Verbose_Table(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+	viper.Set("org", "test-org")
+
+	mock := mockWithDiffData()
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runDriftShow(mock, "test-org", "my-workspace", true)
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
+
+	// Should contain diff markers
+	for _, want := range []string{
+		"---", "aws_security_group.web", "(update)",
+		"~", "=>",
+		"ingress.0.cidr_blocks.0",
+		`"10.0.0.0/16"`, `"0.0.0.0/0"`,
+		"+", "tags.version",
+		"-", "old_field",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("expected %q in verbose output, got:\n%s", want, got)
+		}
+	}
+}
+
+func TestDriftShow_Verbose_JSON(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", true)
+	viper.Set("org", "test-org")
+
+	mock := mockWithDiffData()
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runDriftShow(mock, "test-org", "my-workspace", true)
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
+
+	for _, want := range []string{
+		`"changes"`,
+		`"ingress.0.cidr_blocks.0"`,
+		`"before"`,
+		`"after"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("expected %q in verbose JSON output, got:\n%s", want, got)
+		}
+	}
+}
+
+func TestDriftShow_NoVerbose_NoChanges(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", true)
+	viper.Set("org", "test-org")
+
+	mock := mockWithDiffData()
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runDriftShow(mock, "test-org", "my-workspace", false)
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
+
+	if strings.Contains(got, `"changes"`) {
+		t.Errorf("expected no 'changes' field without verbose, got:\n%s", got)
+	}
+}
+
+func TestComputeDiffs(t *testing.T) {
+	tests := []struct {
+		name       string
+		before     map[string]interface{}
+		after      map[string]interface{}
+		wantKeys   []string
+		wantCount  int
+	}{
+		{
+			name:      "changed value",
+			before:    map[string]interface{}{"name": "old"},
+			after:     map[string]interface{}{"name": "new"},
+			wantKeys:  []string{"name"},
+			wantCount: 1,
+		},
+		{
+			name:      "added value",
+			before:    map[string]interface{}{},
+			after:     map[string]interface{}{"new_key": "val"},
+			wantKeys:  []string{"new_key"},
+			wantCount: 1,
+		},
+		{
+			name:      "removed value",
+			before:    map[string]interface{}{"old_key": "val"},
+			after:     map[string]interface{}{},
+			wantKeys:  []string{"old_key"},
+			wantCount: 1,
+		},
+		{
+			name:      "no change",
+			before:    map[string]interface{}{"same": "val"},
+			after:     map[string]interface{}{"same": "val"},
+			wantKeys:  nil,
+			wantCount: 0,
+		},
+		{
+			name: "nested map flattened",
+			before: map[string]interface{}{
+				"tags": map[string]interface{}{"env": "prod"},
+			},
+			after: map[string]interface{}{
+				"tags": map[string]interface{}{"env": "staging"},
+			},
+			wantKeys:  []string{"tags.env"},
+			wantCount: 1,
+		},
+		{
+			name: "array flattened",
+			before: map[string]interface{}{
+				"cidrs": []interface{}{"10.0.0.0/16"},
+			},
+			after: map[string]interface{}{
+				"cidrs": []interface{}{"0.0.0.0/0"},
+			},
+			wantKeys:  []string{"cidrs.0"},
+			wantCount: 1,
+		},
+		{
+			name:      "nil before and after",
+			before:    nil,
+			after:     nil,
+			wantKeys:  nil,
+			wantCount: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			diffs := computeDiffs(tt.before, tt.after)
+			if len(diffs) != tt.wantCount {
+				t.Errorf("expected %d diffs, got %d: %+v", tt.wantCount, len(diffs), diffs)
+			}
+			for _, wantKey := range tt.wantKeys {
+				found := false
+				for _, d := range diffs {
+					if d.Key == wantKey {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("expected diff key %q not found in %+v", wantKey, diffs)
+				}
+			}
+		})
 	}
 }

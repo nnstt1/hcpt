@@ -348,3 +348,87 @@ func TestParseAssessmentJSONOutput_InvalidJSON(t *testing.T) {
 		t.Errorf("expected 'failed to parse' error, got: %v", err)
 	}
 }
+
+func TestParseAssessmentJSONOutput_BeforeAfter(t *testing.T) {
+	body := []byte(`{
+		"resource_drift": [
+			{
+				"address": "aws_security_group.web",
+				"type": "aws_security_group",
+				"name": "web",
+				"change": {
+					"actions": ["update"],
+					"before": {
+						"ingress": [{"cidr_blocks": ["10.0.0.0/16"], "from_port": 443}],
+						"tags": {"env": "prod"}
+					},
+					"after": {
+						"ingress": [{"cidr_blocks": ["0.0.0.0/0"], "from_port": 443}],
+						"tags": {"env": "staging", "version": "2"}
+					}
+				}
+			}
+		]
+	}`)
+
+	resources, err := parseAssessmentJSONOutput(body)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resources) != 1 {
+		t.Fatalf("expected 1 resource, got %d", len(resources))
+	}
+
+	r := resources[0]
+	if r.Before == nil {
+		t.Fatal("expected Before to be non-nil")
+	}
+	if r.After == nil {
+		t.Fatal("expected After to be non-nil")
+	}
+
+	// Verify before has tags.env = "prod"
+	tags, ok := r.Before["tags"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected Before['tags'] to be a map")
+	}
+	if tags["env"] != "prod" {
+		t.Errorf("expected Before tags.env='prod', got %v", tags["env"])
+	}
+
+	// Verify after has tags.version = "2"
+	tagsAfter, ok := r.After["tags"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected After['tags'] to be a map")
+	}
+	if tagsAfter["version"] != "2" {
+		t.Errorf("expected After tags.version='2', got %v", tagsAfter["version"])
+	}
+}
+
+func TestParseAssessmentJSONOutput_NoBeforeAfter(t *testing.T) {
+	body := []byte(`{
+		"resource_drift": [
+			{
+				"address": "aws_instance.test",
+				"type": "aws_instance",
+				"name": "test",
+				"change": {"actions": ["update"]}
+			}
+		]
+	}`)
+
+	resources, err := parseAssessmentJSONOutput(body)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resources) != 1 {
+		t.Fatalf("expected 1 resource, got %d", len(resources))
+	}
+	if resources[0].Before != nil {
+		t.Errorf("expected Before to be nil, got %v", resources[0].Before)
+	}
+	if resources[0].After != nil {
+		t.Errorf("expected After to be nil, got %v", resources[0].After)
+	}
+}
