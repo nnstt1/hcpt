@@ -310,7 +310,7 @@ func printResourceDiffs(w *os.File, resources []client.DriftedResource) {
 			continue
 		}
 
-		fmt.Fprintf(w, "\n--- %s (%s) ---\n", r.Address, r.Action)
+		fmt.Fprintf(w, "\nResource: %s (%s)\n", r.Address, r.Action)
 		// Find max key length for alignment
 		maxKeyLen := 0
 		for _, d := range diffs {

@@ -523,7 +523,7 @@ func TestDriftShow_Verbose_Table(t *testing.T) {
 
 	// Should contain diff markers
 	for _, want := range []string{
-		"---", "aws_security_group.web", "(update)",
+		"Resource:", "aws_security_group.web", "(update)",
 		"~", "=>",
 		"ingress.0.cidr_blocks.0",
 		`"10.0.0.0/16"`, `"0.0.0.0/0"`,
