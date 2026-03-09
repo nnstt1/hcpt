@@ -5,6 +5,7 @@ dist/
 # Test files
 test-import.tfvars
 *.test
+cover.out
 coverage.out
 coverage.html
 

@@ -74,6 +74,8 @@ type DriftedResource struct {
 	Type    string
 	Name    string
 	Action  string
+	Before  map[string]interface{}
+	After   map[string]interface{}
 }
 
 // AssessmentService provides operations to read workspace assessment results.
@@ -474,25 +476,44 @@ func (c *ClientWrapper) ReadAssessmentDriftDetails(ctx context.Context, assessme
 	return parseAssessmentJSONOutput(body)
 }
 
+// resourceChange is a shared struct for parsing resource_drift and resource_changes entries.
+type resourceChange struct {
+	Address string `json:"address"`
+	Type    string `json:"type"`
+	Name    string `json:"name"`
+	Change  struct {
+		Actions []string               `json:"actions"`
+		Before  map[string]interface{} `json:"before"`
+		After   map[string]interface{} `json:"after"`
+	} `json:"change"`
+}
+
 // parseAssessmentJSONOutput extracts drifted resources from the Terraform plan JSON output.
+// It first looks at resource_drift; if empty, it falls back to resource_changes
+// and picks entries whose actions are not "no-op".
 func parseAssessmentJSONOutput(body []byte) ([]DriftedResource, error) {
 	var planOutput struct {
-		ResourceDrift []struct {
-			Address string `json:"address"`
-			Type    string `json:"type"`
-			Name    string `json:"name"`
-			Change  struct {
-				Actions []string `json:"actions"`
-			} `json:"change"`
-		} `json:"resource_drift"`
+		ResourceDrift   []resourceChange `json:"resource_drift"`
+		ResourceChanges []resourceChange `json:"resource_changes"`
 	}
 
 	if err := json.Unmarshal(body, &planOutput); err != nil {
 		return nil, fmt.Errorf("failed to parse assessment json-output: %w", err)
 	}
 
-	resources := make([]DriftedResource, 0, len(planOutput.ResourceDrift))
-	for _, r := range planOutput.ResourceDrift {
+	entries := planOutput.ResourceDrift
+	if len(entries) == 0 {
+		// Fallback: extract drifted resources from resource_changes (excluding no-op)
+		for _, r := range planOutput.ResourceChanges {
+			if len(r.Change.Actions) == 1 && r.Change.Actions[0] == "no-op" {
+				continue
+			}
+			entries = append(entries, r)
+		}
+	}
+
+	resources := make([]DriftedResource, 0, len(entries))
+	for _, r := range entries {
 		action := "unknown"
 		if len(r.Change.Actions) > 0 {
 			action = strings.Join(r.Change.Actions, ", ")
@@ -502,6 +523,8 @@ func parseAssessmentJSONOutput(body []byte) ([]DriftedResource, error) {
 			Type:    r.Type,
 			Name:    r.Name,
 			Action:  action,
+			Before:  r.Change.Before,
+			After:   r.Change.After,
 		})
 	}
 
