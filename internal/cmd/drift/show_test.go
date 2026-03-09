@@ -603,11 +603,11 @@ func TestDriftShow_NoVerbose_NoChanges(t *testing.T) {
 
 func TestComputeDiffs(t *testing.T) {
 	tests := []struct {
-		name       string
-		before     map[string]interface{}
-		after      map[string]interface{}
-		wantKeys   []string
-		wantCount  int
+		name      string
+		before    map[string]interface{}
+		after     map[string]interface{}
+		wantKeys  []string
+		wantCount int
 	}{
 		{
 			name:      "changed value",

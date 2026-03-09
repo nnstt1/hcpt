@@ -285,7 +285,7 @@ func printResourceDiffs(w *os.File, resources []client.DriftedResource) {
 			continue
 		}
 
-		fmt.Fprintf(w, "\n--- %s (%s) ---\n", r.Address, r.Action)
+		fmt.Fprintf(w, "\n--- %s (%s) ---\n", r.Address, r.Action) //nolint:errcheck
 
 		// Find max key length for alignment
 		maxKeyLen := 0
@@ -306,7 +306,7 @@ func printResourceDiffs(w *os.File, resources []client.DriftedResource) {
 				symbol = "~"
 			}
 			padding := strings.Repeat(" ", maxKeyLen-len(d.Key))
-			fmt.Fprintf(w, "  %s %s:%s  %s => %s\n", symbol, d.Key, padding, d.Before, d.After)
+			fmt.Fprintf(w, "  %s %s:%s  %s => %s\n", symbol, d.Key, padding, d.Before, d.After) //nolint:errcheck
 		}
 	}
 }
