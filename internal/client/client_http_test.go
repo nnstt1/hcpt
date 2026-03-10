@@ -152,7 +152,7 @@ func TestReadCurrentAssessment_RateLimitContextCancel(t *testing.T) {
 
 func TestReadAssessmentDriftDetails_Success(t *testing.T) {
 	body := `{
-		"resource_drift": [
+		"resource_changes": [
 			{
 				"address": "aws_instance.web",
 				"type": "aws_instance",
