@@ -148,7 +148,13 @@ func toDriftShowJSON(ws *tfe.Workspace, result *client.AssessmentResult, resourc
 			if len(diffs) > 0 {
 				rj.Changes = make(map[string]driftChange, len(diffs))
 				for _, d := range diffs {
-					rj.Changes[d.Key] = driftChange{Before: d.BeforeRaw, After: d.AfterRaw, KnownAfterApply: d.KnownAfterApply, Sensitive: d.Sensitive}
+					beforeVal := d.BeforeRaw
+					afterVal := d.AfterRaw
+					if d.Sensitive {
+						beforeVal = "(sensitive value)"
+						afterVal = "(sensitive value)"
+					}
+					rj.Changes[d.Key] = driftChange{Before: beforeVal, After: afterVal, KnownAfterApply: d.KnownAfterApply, Sensitive: d.Sensitive}
 				}
 			}
 		}
