@@ -698,7 +698,7 @@ func TestComputeDiffs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			diffs := computeDiffs(tt.before, tt.after)
+			diffs := computeDiffs(tt.before, tt.after, nil)
 			if len(diffs) != tt.wantCount {
 				t.Errorf("expected %d diffs, got %d: %+v", tt.wantCount, len(diffs), diffs)
 			}
@@ -715,5 +715,53 @@ func TestComputeDiffs(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestComputeDiffs_KnownAfterApply(t *testing.T) {
+	before := map[string]interface{}{
+		"sku":  "Standard_B1ms",
+		"name": "myvm",
+	}
+	after := map[string]interface{}{
+		"sku":  nil, // null because it will be known after apply
+		"name": "myvm",
+	}
+	afterUnknown := map[string]interface{}{
+		"sku": true, // this attribute is known after apply
+	}
+
+	diffs := computeDiffs(before, after, afterUnknown)
+
+	if len(diffs) != 1 {
+		t.Fatalf("expected 1 diff, got %d: %+v", len(diffs), diffs)
+	}
+	d := diffs[0]
+	if d.Key != "sku" {
+		t.Errorf("expected key 'sku', got %q", d.Key)
+	}
+	if d.After != "(known after apply)" {
+		t.Errorf("expected After '(known after apply)', got %q", d.After)
+	}
+	if !d.KnownAfterApply {
+		t.Error("expected KnownAfterApply to be true")
+	}
+}
+
+func TestComputeDiffs_KnownAfterApply_NilAfterUnknown(t *testing.T) {
+	// nil afterUnknown should not cause panic, null after stays "(null)"
+	before := map[string]interface{}{"key": "value"}
+	after := map[string]interface{}{"key": nil}
+
+	diffs := computeDiffs(before, after, nil)
+
+	if len(diffs) != 1 {
+		t.Fatalf("expected 1 diff, got %d", len(diffs))
+	}
+	if diffs[0].After != "(null)" {
+		t.Errorf("expected '(null)', got %q", diffs[0].After)
+	}
+	if diffs[0].KnownAfterApply {
+		t.Error("expected KnownAfterApply to be false")
 	}
 }

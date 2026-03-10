@@ -65,8 +65,9 @@ type driftResourceJSON struct {
 }
 
 type driftChange struct {
-	Before interface{} `json:"before"`
-	After  interface{} `json:"after"`
+	Before          interface{} `json:"before"`
+	After           interface{} `json:"after"`
+	KnownAfterApply bool        `json:"known_after_apply,omitempty"`
 }
 
 type driftShowJSON struct {
@@ -142,11 +143,11 @@ func toDriftShowJSON(ws *tfe.Workspace, result *client.AssessmentResult, resourc
 			Action:  r.Action,
 		}
 		if verbose {
-			diffs := computeDiffs(r.Before, r.After)
+			diffs := computeDiffs(r.Before, r.After, r.AfterUnknown)
 			if len(diffs) > 0 {
 				rj.Changes = make(map[string]driftChange, len(diffs))
 				for _, d := range diffs {
-					rj.Changes[d.Key] = driftChange{Before: d.BeforeRaw, After: d.AfterRaw}
+					rj.Changes[d.Key] = driftChange{Before: d.BeforeRaw, After: d.AfterRaw, KnownAfterApply: d.KnownAfterApply}
 				}
 			}
 		}
@@ -181,11 +182,12 @@ func buildDriftShowKeyValues(ws *tfe.Workspace, result *client.AssessmentResult)
 
 // attributeDiff represents a single attribute-level change between before and after states.
 type attributeDiff struct {
-	Key       string
-	Before    string
-	After     string
-	BeforeRaw interface{}
-	AfterRaw  interface{}
+	Key             string
+	Before          string
+	After           string
+	BeforeRaw       interface{}
+	AfterRaw        interface{}
+	KnownAfterApply bool
 }
 
 // flattenMap recursively flattens a nested map into dot-notation keys.
@@ -219,15 +221,20 @@ func flattenMap(prefix string, value interface{}, result map[string]interface{})
 }
 
 // computeDiffs compares before and after maps and returns sorted attribute diffs.
-func computeDiffs(before, after map[string]interface{}) []attributeDiff {
+// afterUnknown marks attributes whose after value will be known only after apply.
+func computeDiffs(before, after, afterUnknown map[string]interface{}) []attributeDiff {
 	flatBefore := make(map[string]interface{})
 	flatAfter := make(map[string]interface{})
+	flatAfterUnknown := make(map[string]interface{})
 
 	if before != nil {
 		flattenMap("", before, flatBefore)
 	}
 	if after != nil {
 		flattenMap("", after, flatAfter)
+	}
+	if afterUnknown != nil {
+		flattenMap("", afterUnknown, flatAfterUnknown)
 	}
 
 	// Collect all keys
@@ -243,25 +250,32 @@ func computeDiffs(before, after map[string]interface{}) []attributeDiff {
 	for k := range keys {
 		bVal, bOk := flatBefore[k]
 		aVal, aOk := flatAfter[k]
+		isUnknown := flatAfterUnknown[k] == true
 
 		bStr := formatDiffValue(bVal)
-		aStr := formatDiffValue(aVal)
 
 		if !bOk {
-			// Added (skip if value is nil — no real change)
-			if aVal == nil {
+			// Added
+			if aVal == nil && !isUnknown {
 				continue
 			}
-			diffs = append(diffs, attributeDiff{Key: k, Before: "(null)", After: aStr, BeforeRaw: nil, AfterRaw: aVal})
+			aStr := "(known after apply)"
+			if !isUnknown {
+				aStr = formatDiffValue(aVal)
+			}
+			diffs = append(diffs, attributeDiff{Key: k, Before: "(null)", After: aStr, BeforeRaw: nil, AfterRaw: aVal, KnownAfterApply: isUnknown})
 		} else if !aOk {
 			// Removed (skip if value is nil — no real change)
 			if bVal == nil {
 				continue
 			}
 			diffs = append(diffs, attributeDiff{Key: k, Before: bStr, After: "(null)", BeforeRaw: bVal, AfterRaw: nil})
-		} else if bStr != aStr {
+		} else if isUnknown {
+			// Changed to known-after-apply
+			diffs = append(diffs, attributeDiff{Key: k, Before: bStr, After: "(known after apply)", BeforeRaw: bVal, AfterRaw: nil, KnownAfterApply: true})
+		} else if bStr != formatDiffValue(aVal) {
 			// Changed
-			diffs = append(diffs, attributeDiff{Key: k, Before: bStr, After: aStr, BeforeRaw: bVal, AfterRaw: aVal})
+			diffs = append(diffs, attributeDiff{Key: k, Before: bStr, After: formatDiffValue(aVal), BeforeRaw: bVal, AfterRaw: aVal})
 		}
 	}
 
@@ -305,7 +319,7 @@ func formatDiffValue(v interface{}) string {
 // printResourceDiffs prints attribute-level diffs for each drifted resource.
 func printResourceDiffs(w *os.File, resources []client.DriftedResource) {
 	for _, r := range resources {
-		diffs := computeDiffs(r.Before, r.After)
+		diffs := computeDiffs(r.Before, r.After, r.AfterUnknown)
 		if len(diffs) == 0 {
 			continue
 		}

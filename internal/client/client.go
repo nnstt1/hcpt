@@ -70,12 +70,13 @@ type AssessmentResult struct {
 
 // DriftedResource holds details about a single drifted resource.
 type DriftedResource struct {
-	Address string
-	Type    string
-	Name    string
-	Action  string
-	Before  map[string]interface{}
-	After   map[string]interface{}
+	Address      string
+	Type         string
+	Name         string
+	Action       string
+	Before       map[string]interface{}
+	After        map[string]interface{}
+	AfterUnknown map[string]interface{}
 }
 
 // AssessmentService provides operations to read workspace assessment results.
@@ -482,9 +483,10 @@ type resourceChange struct {
 	Type    string `json:"type"`
 	Name    string `json:"name"`
 	Change  struct {
-		Actions []string               `json:"actions"`
-		Before  map[string]interface{} `json:"before"`
-		After   map[string]interface{} `json:"after"`
+		Actions      []string               `json:"actions"`
+		Before       map[string]interface{} `json:"before"`
+		After        map[string]interface{} `json:"after"`
+		AfterUnknown map[string]interface{} `json:"after_unknown"`
 	} `json:"change"`
 }
 
@@ -515,12 +517,13 @@ func parseAssessmentJSONOutput(body []byte) ([]DriftedResource, error) {
 			action = strings.Join(r.Change.Actions, ", ")
 		}
 		resources = append(resources, DriftedResource{
-			Address: r.Address,
-			Type:    r.Type,
-			Name:    r.Name,
-			Action:  action,
-			Before:  r.Change.Before,
-			After:   r.Change.After,
+			Address:      r.Address,
+			Type:         r.Type,
+			Name:         r.Name,
+			Action:       action,
+			Before:       r.Change.Before,
+			After:        r.Change.After,
+			AfterUnknown: r.Change.AfterUnknown,
 		})
 	}
 
