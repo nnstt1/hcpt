@@ -847,7 +847,7 @@ func TestComputeDiffs_SensitiveValue_ParentKey(t *testing.T) {
 	}
 	after := map[string]interface{}{
 		"credentials": map[string]interface{}{
-			"client_id":     "abc123",        // unchanged
+			"client_id":     "abc123",         // unchanged
 			"client_secret": "newsupersecret", // changed
 		},
 	}
