@@ -765,3 +765,37 @@ func TestComputeDiffs_KnownAfterApply_NilAfterUnknown(t *testing.T) {
 		t.Error("expected KnownAfterApply to be false")
 	}
 }
+
+func TestComputeDiffs_KnownAfterApply_ParentKey(t *testing.T) {
+	// after_unknown marks a parent object as true, meaning all children are unknown.
+	// after may not contain those keys at all (absent, not null).
+	before := map[string]interface{}{
+		"annotations": map[string]interface{}{
+			"env":     "prod",
+			"version": "1.0",
+		},
+		"name": "myresource",
+	}
+	after := map[string]interface{}{
+		"name": "myresource",
+		// "annotations" is absent — unknown after apply
+	}
+	afterUnknown := map[string]interface{}{
+		"annotations": true, // entire annotations block is unknown
+	}
+
+	diffs := computeDiffs(before, after, afterUnknown)
+
+	// should find 2 diffs: annotations.env and annotations.version, both known after apply
+	if len(diffs) != 2 {
+		t.Fatalf("expected 2 diffs, got %d: %+v", len(diffs), diffs)
+	}
+	for _, d := range diffs {
+		if d.After != "(known after apply)" {
+			t.Errorf("key %q: expected '(known after apply)', got %q", d.Key, d.After)
+		}
+		if !d.KnownAfterApply {
+			t.Errorf("key %q: expected KnownAfterApply=true", d.Key)
+		}
+	}
+}

@@ -220,6 +220,24 @@ func flattenMap(prefix string, value interface{}, result map[string]interface{})
 	}
 }
 
+// isKnownAfterApply checks if a flattened key (e.g. "a.b.c") is marked as unknown
+// in flatAfterUnknown. It checks the key itself and all ancestor keys, because
+// after_unknown may mark an entire parent object as true (e.g. "a": true) rather
+// than listing each child individually.
+func isKnownAfterApply(key string, flatAfterUnknown map[string]interface{}) bool {
+	if flatAfterUnknown[key] == true {
+		return true
+	}
+	for i := len(key) - 1; i >= 0; i-- {
+		if key[i] == '.' {
+			if flatAfterUnknown[key[:i]] == true {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // computeDiffs compares before and after maps and returns sorted attribute diffs.
 // afterUnknown marks attributes whose after value will be known only after apply.
 func computeDiffs(before, after, afterUnknown map[string]interface{}) []attributeDiff {
@@ -237,7 +255,7 @@ func computeDiffs(before, after, afterUnknown map[string]interface{}) []attribut
 		flattenMap("", afterUnknown, flatAfterUnknown)
 	}
 
-	// Collect all keys
+	// Collect all keys from before and after
 	keys := make(map[string]struct{})
 	for k := range flatBefore {
 		keys[k] = struct{}{}
@@ -250,29 +268,30 @@ func computeDiffs(before, after, afterUnknown map[string]interface{}) []attribut
 	for k := range keys {
 		bVal, bOk := flatBefore[k]
 		aVal, aOk := flatAfter[k]
-		isUnknown := flatAfterUnknown[k] == true
+		unknown := isKnownAfterApply(k, flatAfterUnknown)
 
 		bStr := formatDiffValue(bVal)
 
 		if !bOk {
 			// Added
-			if aVal == nil && !isUnknown {
+			if aVal == nil && !unknown {
 				continue
 			}
 			aStr := "(known after apply)"
-			if !isUnknown {
+			if !unknown {
 				aStr = formatDiffValue(aVal)
 			}
-			diffs = append(diffs, attributeDiff{Key: k, Before: "(null)", After: aStr, BeforeRaw: nil, AfterRaw: aVal, KnownAfterApply: isUnknown})
-		} else if !aOk {
-			// Removed (skip if value is nil — no real change)
-			if bVal == nil {
+			diffs = append(diffs, attributeDiff{Key: k, Before: "(null)", After: aStr, BeforeRaw: nil, AfterRaw: aVal, KnownAfterApply: unknown})
+		} else if !aOk || unknown {
+			// Removed or known-after-apply (key absent from after, or parent marked unknown)
+			if bVal == nil && !unknown {
 				continue
 			}
-			diffs = append(diffs, attributeDiff{Key: k, Before: bStr, After: "(null)", BeforeRaw: bVal, AfterRaw: nil})
-		} else if isUnknown {
-			// Changed to known-after-apply
-			diffs = append(diffs, attributeDiff{Key: k, Before: bStr, After: "(known after apply)", BeforeRaw: bVal, AfterRaw: nil, KnownAfterApply: true})
+			if unknown {
+				diffs = append(diffs, attributeDiff{Key: k, Before: bStr, After: "(known after apply)", BeforeRaw: bVal, AfterRaw: nil, KnownAfterApply: true})
+			} else {
+				diffs = append(diffs, attributeDiff{Key: k, Before: bStr, After: "(null)", BeforeRaw: bVal, AfterRaw: nil})
+			}
 		} else if bStr != formatDiffValue(aVal) {
 			// Changed
 			diffs = append(diffs, attributeDiff{Key: k, Before: bStr, After: formatDiffValue(aVal), BeforeRaw: bVal, AfterRaw: aVal})
