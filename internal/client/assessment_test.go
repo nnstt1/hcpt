@@ -251,7 +251,7 @@ func TestParseExplorerWorkspacesResponse_InvalidJSON(t *testing.T) {
 
 func TestParseAssessmentJSONOutput_MultipleResources(t *testing.T) {
 	body := []byte(`{
-		"resource_drift": [
+		"resource_changes": [
 			{
 				"address": "aws_security_group.web",
 				"type": "aws_security_group",
@@ -291,8 +291,8 @@ func TestParseAssessmentJSONOutput_MultipleResources(t *testing.T) {
 	}
 }
 
-func TestParseAssessmentJSONOutput_NoResourceDrift(t *testing.T) {
-	body := []byte(`{"resource_drift": []}`)
+func TestParseAssessmentJSONOutput_NoResourceChanges(t *testing.T) {
+	body := []byte(`{"resource_changes": []}`)
 
 	resources, err := parseAssessmentJSONOutput(body)
 	if err != nil {
@@ -317,7 +317,7 @@ func TestParseAssessmentJSONOutput_MissingField(t *testing.T) {
 
 func TestParseAssessmentJSONOutput_EmptyActions(t *testing.T) {
 	body := []byte(`{
-		"resource_drift": [
+		"resource_changes": [
 			{
 				"address": "aws_instance.test",
 				"type": "aws_instance",
@@ -351,7 +351,7 @@ func TestParseAssessmentJSONOutput_InvalidJSON(t *testing.T) {
 
 func TestParseAssessmentJSONOutput_BeforeAfter(t *testing.T) {
 	body := []byte(`{
-		"resource_drift": [
+		"resource_changes": [
 			{
 				"address": "aws_security_group.web",
 				"type": "aws_security_group",
@@ -408,7 +408,7 @@ func TestParseAssessmentJSONOutput_BeforeAfter(t *testing.T) {
 
 func TestParseAssessmentJSONOutput_NoBeforeAfter(t *testing.T) {
 	body := []byte(`{
-		"resource_drift": [
+		"resource_changes": [
 			{
 				"address": "aws_instance.test",
 				"type": "aws_instance",
@@ -433,7 +433,7 @@ func TestParseAssessmentJSONOutput_NoBeforeAfter(t *testing.T) {
 	}
 }
 
-func TestParseAssessmentJSONOutput_FallbackToResourceChanges(t *testing.T) {
+func TestParseAssessmentJSONOutput_FiltersNoOp(t *testing.T) {
 	body := []byte(`{
 		"resource_changes": [
 			{
@@ -470,37 +470,5 @@ func TestParseAssessmentJSONOutput_FallbackToResourceChanges(t *testing.T) {
 	}
 	if resources[0].Before == nil {
 		t.Error("expected Before to be non-nil")
-	}
-}
-
-func TestParseAssessmentJSONOutput_ResourceDriftTakesPriority(t *testing.T) {
-	body := []byte(`{
-		"resource_drift": [
-			{
-				"address": "aws_instance.drift",
-				"type": "aws_instance",
-				"name": "drift",
-				"change": {"actions": ["update"]}
-			}
-		],
-		"resource_changes": [
-			{
-				"address": "aws_instance.change",
-				"type": "aws_instance",
-				"name": "change",
-				"change": {"actions": ["update"]}
-			}
-		]
-	}`)
-
-	resources, err := parseAssessmentJSONOutput(body)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(resources) != 1 {
-		t.Fatalf("expected 1 resource, got %d", len(resources))
-	}
-	if resources[0].Address != "aws_instance.drift" {
-		t.Errorf("expected resource_drift to take priority, got %q", resources[0].Address)
 	}
 }

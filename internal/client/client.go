@@ -70,12 +70,15 @@ type AssessmentResult struct {
 
 // DriftedResource holds details about a single drifted resource.
 type DriftedResource struct {
-	Address string
-	Type    string
-	Name    string
-	Action  string
-	Before  map[string]interface{}
-	After   map[string]interface{}
+	Address         string
+	Type            string
+	Name            string
+	Action          string
+	Before          map[string]interface{}
+	After           map[string]interface{}
+	AfterUnknown    map[string]interface{}
+	BeforeSensitive map[string]interface{}
+	AfterSensitive  map[string]interface{}
 }
 
 // AssessmentService provides operations to read workspace assessment results.
@@ -482,18 +485,20 @@ type resourceChange struct {
 	Type    string `json:"type"`
 	Name    string `json:"name"`
 	Change  struct {
-		Actions []string               `json:"actions"`
-		Before  map[string]interface{} `json:"before"`
-		After   map[string]interface{} `json:"after"`
+		Actions         []string               `json:"actions"`
+		Before          map[string]interface{} `json:"before"`
+		After           map[string]interface{} `json:"after"`
+		AfterUnknown    map[string]interface{} `json:"after_unknown"`
+		BeforeSensitive map[string]interface{} `json:"before_sensitive"`
+		AfterSensitive  map[string]interface{} `json:"after_sensitive"`
 	} `json:"change"`
 }
 
 // parseAssessmentJSONOutput extracts drifted resources from the Terraform plan JSON output.
-// It first looks at resource_drift; if empty, it falls back to resource_changes
-// and picks entries whose actions are not "no-op".
+// It uses resource_changes (excluding no-op entries) as the source of truth for drift,
+// because resource_drift can include incorrect entries due to an API-side issue.
 func parseAssessmentJSONOutput(body []byte) ([]DriftedResource, error) {
 	var planOutput struct {
-		ResourceDrift   []resourceChange `json:"resource_drift"`
 		ResourceChanges []resourceChange `json:"resource_changes"`
 	}
 
@@ -501,15 +506,12 @@ func parseAssessmentJSONOutput(body []byte) ([]DriftedResource, error) {
 		return nil, fmt.Errorf("failed to parse assessment json-output: %w", err)
 	}
 
-	entries := planOutput.ResourceDrift
-	if len(entries) == 0 {
-		// Fallback: extract drifted resources from resource_changes (excluding no-op)
-		for _, r := range planOutput.ResourceChanges {
-			if len(r.Change.Actions) == 1 && r.Change.Actions[0] == "no-op" {
-				continue
-			}
-			entries = append(entries, r)
+	entries := make([]resourceChange, 0, len(planOutput.ResourceChanges))
+	for _, r := range planOutput.ResourceChanges {
+		if len(r.Change.Actions) == 1 && r.Change.Actions[0] == "no-op" {
+			continue
 		}
+		entries = append(entries, r)
 	}
 
 	resources := make([]DriftedResource, 0, len(entries))
@@ -519,12 +521,15 @@ func parseAssessmentJSONOutput(body []byte) ([]DriftedResource, error) {
 			action = strings.Join(r.Change.Actions, ", ")
 		}
 		resources = append(resources, DriftedResource{
-			Address: r.Address,
-			Type:    r.Type,
-			Name:    r.Name,
-			Action:  action,
-			Before:  r.Change.Before,
-			After:   r.Change.After,
+			Address:         r.Address,
+			Type:            r.Type,
+			Name:            r.Name,
+			Action:          action,
+			Before:          r.Change.Before,
+			After:           r.Change.After,
+			AfterUnknown:    r.Change.AfterUnknown,
+			BeforeSensitive: r.Change.BeforeSensitive,
+			AfterSensitive:  r.Change.AfterSensitive,
 		})
 	}
 

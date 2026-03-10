@@ -698,7 +698,7 @@ func TestComputeDiffs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			diffs := computeDiffs(tt.before, tt.after)
+			diffs := computeDiffs(tt.before, tt.after, nil, nil, nil)
 			if len(diffs) != tt.wantCount {
 				t.Errorf("expected %d diffs, got %d: %+v", tt.wantCount, len(diffs), diffs)
 			}
@@ -715,5 +715,166 @@ func TestComputeDiffs(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestComputeDiffs_KnownAfterApply(t *testing.T) {
+	before := map[string]interface{}{
+		"sku":  "Standard_B1ms",
+		"name": "myvm",
+	}
+	after := map[string]interface{}{
+		"sku":  nil, // null because it will be known after apply
+		"name": "myvm",
+	}
+	afterUnknown := map[string]interface{}{
+		"sku": true, // this attribute is known after apply
+	}
+
+	diffs := computeDiffs(before, after, afterUnknown, nil, nil)
+
+	if len(diffs) != 1 {
+		t.Fatalf("expected 1 diff, got %d: %+v", len(diffs), diffs)
+	}
+	d := diffs[0]
+	if d.Key != "sku" {
+		t.Errorf("expected key 'sku', got %q", d.Key)
+	}
+	if d.After != "(known after apply)" {
+		t.Errorf("expected After '(known after apply)', got %q", d.After)
+	}
+	if !d.KnownAfterApply {
+		t.Error("expected KnownAfterApply to be true")
+	}
+}
+
+func TestComputeDiffs_KnownAfterApply_NilAfterUnknown(t *testing.T) {
+	// nil afterUnknown should not cause panic, null after stays "(null)"
+	before := map[string]interface{}{"key": "value"}
+	after := map[string]interface{}{"key": nil}
+
+	diffs := computeDiffs(before, after, nil, nil, nil)
+
+	if len(diffs) != 1 {
+		t.Fatalf("expected 1 diff, got %d", len(diffs))
+	}
+	if diffs[0].After != "(null)" {
+		t.Errorf("expected '(null)', got %q", diffs[0].After)
+	}
+	if diffs[0].KnownAfterApply {
+		t.Error("expected KnownAfterApply to be false")
+	}
+}
+
+func TestComputeDiffs_KnownAfterApply_ParentKey(t *testing.T) {
+	// after_unknown marks a parent object as true, meaning all children are unknown.
+	// after may not contain those keys at all (absent, not null).
+	before := map[string]interface{}{
+		"annotations": map[string]interface{}{
+			"env":     "prod",
+			"version": "1.0",
+		},
+		"name": "myresource",
+	}
+	after := map[string]interface{}{
+		"name": "myresource",
+		// "annotations" is absent — unknown after apply
+	}
+	afterUnknown := map[string]interface{}{
+		"annotations": true, // entire annotations block is unknown
+	}
+
+	diffs := computeDiffs(before, after, afterUnknown, nil, nil)
+
+	// should find 2 diffs: annotations.env and annotations.version, both known after apply
+	if len(diffs) != 2 {
+		t.Fatalf("expected 2 diffs, got %d: %+v", len(diffs), diffs)
+	}
+	for _, d := range diffs {
+		if d.After != "(known after apply)" {
+			t.Errorf("key %q: expected '(known after apply)', got %q", d.Key, d.After)
+		}
+		if !d.KnownAfterApply {
+			t.Errorf("key %q: expected KnownAfterApply=true", d.Key)
+		}
+	}
+}
+
+func TestComputeDiffs_SensitiveValue(t *testing.T) {
+	before := map[string]interface{}{
+		"password": "secret123",
+		"name":     "myresource",
+	}
+	after := map[string]interface{}{
+		"password": "newsecret456",
+		"name":     "myresource",
+	}
+	beforeSensitive := map[string]interface{}{
+		"password": true,
+	}
+	afterSensitive := map[string]interface{}{
+		"password": true,
+	}
+
+	diffs := computeDiffs(before, after, nil, beforeSensitive, afterSensitive)
+
+	if len(diffs) != 1 {
+		t.Fatalf("expected 1 diff, got %d: %+v", len(diffs), diffs)
+	}
+	d := diffs[0]
+	if d.Key != "password" {
+		t.Errorf("expected key 'password', got %q", d.Key)
+	}
+	if d.Before != "(sensitive value)" {
+		t.Errorf("expected Before '(sensitive value)', got %q", d.Before)
+	}
+	if d.After != "(sensitive value)" {
+		t.Errorf("expected After '(sensitive value)', got %q", d.After)
+	}
+	if !d.Sensitive {
+		t.Error("expected Sensitive to be true")
+	}
+}
+
+func TestComputeDiffs_SensitiveValue_ParentKey(t *testing.T) {
+	// before_sensitive marks an entire nested block as sensitive.
+	// Even though display is masked, raw value comparison detects actual changes.
+	before := map[string]interface{}{
+		"credentials": map[string]interface{}{
+			"client_id":     "abc123",
+			"client_secret": "supersecret",
+		},
+	}
+	after := map[string]interface{}{
+		"credentials": map[string]interface{}{
+			"client_id":     "abc123",         // unchanged
+			"client_secret": "newsupersecret", // changed
+		},
+	}
+	beforeSensitive := map[string]interface{}{
+		"credentials": true,
+	}
+	afterSensitive := map[string]interface{}{
+		"credentials": true,
+	}
+
+	diffs := computeDiffs(before, after, nil, beforeSensitive, afterSensitive)
+
+	// Only client_secret changed (raw value differs); client_id did not change
+	if len(diffs) != 1 {
+		t.Fatalf("expected 1 diff, got %d: %+v", len(diffs), diffs)
+	}
+	d := diffs[0]
+	if d.Key != "credentials.client_secret" {
+		t.Errorf("expected key 'credentials.client_secret', got %q", d.Key)
+	}
+	if d.Before != "(sensitive value)" {
+		t.Errorf("expected Before '(sensitive value)', got %q", d.Before)
+	}
+	if d.After != "(sensitive value)" {
+		t.Errorf("expected After '(sensitive value)', got %q", d.After)
+	}
+	if !d.Sensitive {
+		t.Error("expected Sensitive=true")
 	}
 }
