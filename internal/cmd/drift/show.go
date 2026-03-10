@@ -67,8 +67,8 @@ type driftResourceJSON struct {
 type driftChange struct {
 	Before          interface{} `json:"before"`
 	After           interface{} `json:"after"`
-	KnownAfterApply bool        `json:"known_after_apply,omitempty"`
-	Sensitive       bool        `json:"sensitive,omitempty"`
+	KnownAfterApply bool        `json:"known_after_apply"`
+	Sensitive       bool        `json:"sensitive"`
 }
 
 type driftShowJSON struct {
