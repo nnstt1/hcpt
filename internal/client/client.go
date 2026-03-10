@@ -501,7 +501,13 @@ func parseAssessmentJSONOutput(body []byte) ([]DriftedResource, error) {
 		return nil, fmt.Errorf("failed to parse assessment json-output: %w", err)
 	}
 
-	entries := planOutput.ResourceDrift
+	entries := make([]resourceChange, 0, len(planOutput.ResourceDrift))
+	for _, r := range planOutput.ResourceDrift {
+		if len(r.Change.Actions) == 1 && r.Change.Actions[0] == "no-op" {
+			continue
+		}
+		entries = append(entries, r)
+	}
 	if len(entries) == 0 {
 		// Fallback: extract drifted resources from resource_changes (excluding no-op)
 		for _, r := range planOutput.ResourceChanges {

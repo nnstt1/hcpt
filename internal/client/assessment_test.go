@@ -473,6 +473,36 @@ func TestParseAssessmentJSONOutput_FallbackToResourceChanges(t *testing.T) {
 	}
 }
 
+func TestParseAssessmentJSONOutput_ResourceDriftFiltersNoOp(t *testing.T) {
+	body := []byte(`{
+		"resource_drift": [
+			{
+				"address": "aws_instance.drifted",
+				"type": "aws_instance",
+				"name": "drifted",
+				"change": {"actions": ["update"]}
+			},
+			{
+				"address": "aws_instance.stable",
+				"type": "aws_instance",
+				"name": "stable",
+				"change": {"actions": ["no-op"]}
+			}
+		]
+	}`)
+
+	resources, err := parseAssessmentJSONOutput(body)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resources) != 1 {
+		t.Fatalf("expected 1 resource (no-op excluded from resource_drift), got %d", len(resources))
+	}
+	if resources[0].Address != "aws_instance.drifted" {
+		t.Errorf("expected 'aws_instance.drifted', got %q", resources[0].Address)
+	}
+}
+
 func TestParseAssessmentJSONOutput_ResourceDriftTakesPriority(t *testing.T) {
 	body := []byte(`{
 		"resource_drift": [
