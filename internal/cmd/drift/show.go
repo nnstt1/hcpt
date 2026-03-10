@@ -68,6 +68,7 @@ type driftChange struct {
 	Before          interface{} `json:"before"`
 	After           interface{} `json:"after"`
 	KnownAfterApply bool        `json:"known_after_apply,omitempty"`
+	Sensitive       bool        `json:"sensitive,omitempty"`
 }
 
 type driftShowJSON struct {
@@ -143,11 +144,11 @@ func toDriftShowJSON(ws *tfe.Workspace, result *client.AssessmentResult, resourc
 			Action:  r.Action,
 		}
 		if verbose {
-			diffs := computeDiffs(r.Before, r.After, r.AfterUnknown)
+			diffs := computeDiffs(r.Before, r.After, r.AfterUnknown, r.BeforeSensitive, r.AfterSensitive)
 			if len(diffs) > 0 {
 				rj.Changes = make(map[string]driftChange, len(diffs))
 				for _, d := range diffs {
-					rj.Changes[d.Key] = driftChange{Before: d.BeforeRaw, After: d.AfterRaw, KnownAfterApply: d.KnownAfterApply}
+					rj.Changes[d.Key] = driftChange{Before: d.BeforeRaw, After: d.AfterRaw, KnownAfterApply: d.KnownAfterApply, Sensitive: d.Sensitive}
 				}
 			}
 		}
@@ -188,6 +189,7 @@ type attributeDiff struct {
 	BeforeRaw       interface{}
 	AfterRaw        interface{}
 	KnownAfterApply bool
+	Sensitive       bool
 }
 
 // flattenMap recursively flattens a nested map into dot-notation keys.
@@ -240,10 +242,13 @@ func isKnownAfterApply(key string, flatAfterUnknown map[string]interface{}) bool
 
 // computeDiffs compares before and after maps and returns sorted attribute diffs.
 // afterUnknown marks attributes whose after value will be known only after apply.
-func computeDiffs(before, after, afterUnknown map[string]interface{}) []attributeDiff {
+// beforeSensitive/afterSensitive mark attributes whose values must not be displayed.
+func computeDiffs(before, after, afterUnknown, beforeSensitive, afterSensitive map[string]interface{}) []attributeDiff {
 	flatBefore := make(map[string]interface{})
 	flatAfter := make(map[string]interface{})
 	flatAfterUnknown := make(map[string]interface{})
+	flatBeforeSensitive := make(map[string]interface{})
+	flatAfterSensitive := make(map[string]interface{})
 
 	if before != nil {
 		flattenMap("", before, flatBefore)
@@ -253,6 +258,12 @@ func computeDiffs(before, after, afterUnknown map[string]interface{}) []attribut
 	}
 	if afterUnknown != nil {
 		flattenMap("", afterUnknown, flatAfterUnknown)
+	}
+	if beforeSensitive != nil {
+		flattenMap("", beforeSensitive, flatBeforeSensitive)
+	}
+	if afterSensitive != nil {
+		flattenMap("", afterSensitive, flatAfterSensitive)
 	}
 
 	// Collect all keys from before and after
@@ -269,32 +280,46 @@ func computeDiffs(before, after, afterUnknown map[string]interface{}) []attribut
 		bVal, bOk := flatBefore[k]
 		aVal, aOk := flatAfter[k]
 		unknown := isKnownAfterApply(k, flatAfterUnknown)
+		sensitive := isKnownAfterApply(k, flatBeforeSensitive) || isKnownAfterApply(k, flatAfterSensitive)
 
-		bStr := formatDiffValue(bVal)
+		// Raw strings for change detection; display strings for output
+		rawBStr := formatDiffValue(bVal)
+		rawAStr := formatDiffValue(aVal)
+		dispBStr := rawBStr
+		if sensitive {
+			dispBStr = "(sensitive value)"
+		}
 
 		if !bOk {
 			// Added
 			if aVal == nil && !unknown {
 				continue
 			}
-			aStr := "(known after apply)"
+			dispAStr := "(known after apply)"
 			if !unknown {
-				aStr = formatDiffValue(aVal)
+				dispAStr = rawAStr
+				if sensitive {
+					dispAStr = "(sensitive value)"
+				}
 			}
-			diffs = append(diffs, attributeDiff{Key: k, Before: "(null)", After: aStr, BeforeRaw: nil, AfterRaw: aVal, KnownAfterApply: unknown})
+			diffs = append(diffs, attributeDiff{Key: k, Before: "(null)", After: dispAStr, BeforeRaw: nil, AfterRaw: aVal, KnownAfterApply: unknown, Sensitive: sensitive})
 		} else if !aOk || unknown {
 			// Removed or known-after-apply (key absent from after, or parent marked unknown)
 			if bVal == nil && !unknown {
 				continue
 			}
 			if unknown {
-				diffs = append(diffs, attributeDiff{Key: k, Before: bStr, After: "(known after apply)", BeforeRaw: bVal, AfterRaw: nil, KnownAfterApply: true})
+				diffs = append(diffs, attributeDiff{Key: k, Before: dispBStr, After: "(known after apply)", BeforeRaw: bVal, AfterRaw: nil, KnownAfterApply: true, Sensitive: sensitive})
 			} else {
-				diffs = append(diffs, attributeDiff{Key: k, Before: bStr, After: "(null)", BeforeRaw: bVal, AfterRaw: nil})
+				diffs = append(diffs, attributeDiff{Key: k, Before: dispBStr, After: "(null)", BeforeRaw: bVal, AfterRaw: nil, Sensitive: sensitive})
 			}
-		} else if bStr != formatDiffValue(aVal) {
-			// Changed
-			diffs = append(diffs, attributeDiff{Key: k, Before: bStr, After: formatDiffValue(aVal), BeforeRaw: bVal, AfterRaw: aVal})
+		} else if rawBStr != rawAStr {
+			// Changed — compare raw values; display masked if sensitive
+			dispAStr := rawAStr
+			if sensitive {
+				dispAStr = "(sensitive value)"
+			}
+			diffs = append(diffs, attributeDiff{Key: k, Before: dispBStr, After: dispAStr, BeforeRaw: bVal, AfterRaw: aVal, Sensitive: sensitive})
 		}
 	}
 
@@ -338,7 +363,7 @@ func formatDiffValue(v interface{}) string {
 // printResourceDiffs prints attribute-level diffs for each drifted resource.
 func printResourceDiffs(w *os.File, resources []client.DriftedResource) {
 	for _, r := range resources {
-		diffs := computeDiffs(r.Before, r.After, r.AfterUnknown)
+		diffs := computeDiffs(r.Before, r.After, r.AfterUnknown, r.BeforeSensitive, r.AfterSensitive)
 		if len(diffs) == 0 {
 			continue
 		}
