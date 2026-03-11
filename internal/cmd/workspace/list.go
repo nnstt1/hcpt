@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -24,6 +25,7 @@ func newCmdWorkspaceList() *cobra.Command {
 
 func newCmdWorkspaceListWith(clientFn wsListClientFactory) *cobra.Command {
 	var search string
+	var runStatus string
 
 	cmd := &cobra.Command{
 		Use:          "list",
@@ -39,24 +41,32 @@ func newCmdWorkspaceListWith(clientFn wsListClientFactory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return runWorkspaceList(svc, org, search)
+			return runWorkspaceList(svc, org, search, runStatus)
 		},
 	}
 
 	cmd.Flags().StringVar(&search, "search", "", "search workspaces by name")
+	cmd.Flags().StringVar(&runStatus, "run-status", "", "filter by current run status (comma-separated, e.g. applied,errored)")
 
 	return cmd
 }
 
-func runWorkspaceList(svc client.ExplorerService, org, search string) error {
+func runWorkspaceList(svc client.ExplorerService, org, search, runStatus string) error {
 	ctx := context.Background()
+
+	// For a single status, delegate filtering to the server; for multiple, fetch all and filter client-side.
+	serverRunStatus := ""
+	if runStatus != "" && !strings.Contains(runStatus, ",") {
+		serverRunStatus = runStatus
+	}
 
 	var allItems []client.ExplorerWorkspace
 	page := 1
 	for {
 		result, err := svc.ListExplorerWorkspaces(ctx, org, client.ExplorerListOptions{
-			Search: search,
-			Page:   page,
+			Search:    search,
+			RunStatus: serverRunStatus,
+			Page:      page,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to list workspaces: %w", err)
@@ -66,6 +76,21 @@ func runWorkspaceList(svc client.ExplorerService, org, search string) error {
 			break
 		}
 		page = result.NextPage
+	}
+
+	// Client-side filtering for multiple statuses.
+	if runStatus != "" && strings.Contains(runStatus, ",") {
+		statusSet := make(map[string]bool)
+		for _, s := range strings.Split(runStatus, ",") {
+			statusSet[strings.TrimSpace(s)] = true
+		}
+		filtered := make([]client.ExplorerWorkspace, 0, len(allItems))
+		for _, ws := range allItems {
+			if statusSet[ws.CurrentRunStatus] {
+				filtered = append(filtered, ws)
+			}
+		}
+		allItems = filtered
 	}
 
 	if viper.GetBool("json") {
