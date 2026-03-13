@@ -248,7 +248,7 @@ func isKnownAfterApply(key string, flatAfterUnknown map[string]interface{}) bool
 // computeDiffs compares before and after maps and returns sorted attribute diffs.
 // afterUnknown marks attributes whose after value will be known only after apply.
 // beforeSensitive/afterSensitive mark attributes whose values must not be displayed.
-func computeDiffs(before, after, afterUnknown, beforeSensitive, afterSensitive map[string]interface{}) []attributeDiff {
+func computeDiffs(before, after, afterUnknown, beforeSensitive, afterSensitive map[string]interface{}) []attributeDiff { //nolint:gocyclo // complex by nature, refactor tracked in separate issue
 	flatBefore := make(map[string]interface{})
 	flatAfter := make(map[string]interface{})
 	flatAfterUnknown := make(map[string]interface{})
@@ -295,7 +295,8 @@ func computeDiffs(before, after, afterUnknown, beforeSensitive, afterSensitive m
 			dispBStr = "(sensitive value)"
 		}
 
-		if !bOk {
+		switch {
+		case !bOk:
 			// Added
 			if aVal == nil && !unknown {
 				continue
@@ -308,7 +309,7 @@ func computeDiffs(before, after, afterUnknown, beforeSensitive, afterSensitive m
 				}
 			}
 			diffs = append(diffs, attributeDiff{Key: k, Before: "(null)", After: dispAStr, BeforeRaw: nil, AfterRaw: aVal, KnownAfterApply: unknown, Sensitive: sensitive})
-		} else if !aOk || unknown {
+		case !aOk || unknown:
 			// Removed or known-after-apply (key absent from after, or parent marked unknown)
 			if bVal == nil && !unknown {
 				continue
@@ -318,7 +319,7 @@ func computeDiffs(before, after, afterUnknown, beforeSensitive, afterSensitive m
 			} else {
 				diffs = append(diffs, attributeDiff{Key: k, Before: dispBStr, After: "(null)", BeforeRaw: bVal, AfterRaw: nil, Sensitive: sensitive})
 			}
-		} else if rawBStr != rawAStr {
+		case rawBStr != rawAStr:
 			// Changed — compare raw values; display masked if sensitive
 			dispAStr := rawAStr
 			if sensitive {

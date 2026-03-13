@@ -38,7 +38,7 @@ func TestFindTokenFromCredentialsJSON(t *testing.T) {
 		t.Setenv("HOME", home)
 
 		dir := filepath.Join(home, ".terraform.d")
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			t.Fatal(err)
 		}
 
@@ -64,7 +64,7 @@ func TestFindTokenFromCredentialsJSON(t *testing.T) {
 		t.Setenv("HOME", home)
 
 		dir := filepath.Join(home, ".terraform.d")
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			t.Fatal(err)
 		}
 
@@ -168,7 +168,7 @@ func TestFindTerraformToken_Priority(t *testing.T) {
 	t.Setenv("HOME", home)
 
 	dir := filepath.Join(home, ".terraform.d")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		t.Fatal(err)
 	}
 	jsonContent := `{

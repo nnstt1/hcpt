@@ -9,12 +9,19 @@ linters:
     - unused
     - ineffassign
     - misspell
+    - gosec
+    - bodyclose
+    - noctx
+    - gocyclo
+    - gocritic
   settings:
     errcheck:
       exclude-functions:
         - fmt.Fprint
         - fmt.Fprintf
         - fmt.Fprintln
+    gocyclo:
+      min-complexity: 20
 
 formatters:
   enable:

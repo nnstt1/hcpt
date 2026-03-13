@@ -44,7 +44,7 @@ func runConfigSet(key, value string) error {
 	}
 
 	existing := make(map[string]string)
-	data, err := os.ReadFile(configPath)
+	data, err := os.ReadFile(configPath) //nolint:gosec // G304: path is constructed from user home dir, not user-controlled input
 	if err == nil {
 		_ = yaml.Unmarshal(data, &existing)
 	}

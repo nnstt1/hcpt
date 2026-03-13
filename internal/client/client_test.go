@@ -60,7 +60,7 @@ func TestNewClientWrapper_FallbackToTerraformCredentials(t *testing.T) {
 	t.Setenv("HOME", home)
 
 	dir := filepath.Join(home, ".terraform.d")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		t.Fatal(err)
 	}
 	content := `{

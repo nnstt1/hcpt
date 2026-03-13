@@ -90,7 +90,7 @@ func parseHCLFile(filename string) ([]Variable, error) {
 
 // parseJSONFile parses a JSON-formatted .tfvars.json file.
 func parseJSONFile(filename string) ([]Variable, error) {
-	data, err := os.ReadFile(filename)
+	data, err := os.ReadFile(filename) //nolint:gosec // G304: filename is provided by the user via CLI argument
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}

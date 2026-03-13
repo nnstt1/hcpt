@@ -76,7 +76,7 @@ func newCmdVariableImportWith(clientFn variableImportClientFactory) *cobra.Comma
 	return cmd
 }
 
-func runVariableImport(svc variableImportService, org, workspaceName, filename string,
+func runVariableImport(svc variableImportService, org, workspaceName, filename string, //nolint:gocyclo // complex by nature, refactor tracked in separate issue
 	category tfe.CategoryType, sensitive, overwrite, dryRun bool) error {
 	ctx := context.Background()
 

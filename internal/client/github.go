@@ -14,13 +14,13 @@ import (
 // DetectGitHubRepository detects GitHub repository (owner/repo) from current directory's Git remote.
 // It prioritizes 'origin' remote if multiple remotes exist.
 // Returns owner/repo format or an error if not a Git repo or GitHub remote not found.
-func DetectGitHubRepository() (string, error) {
+func DetectGitHubRepository(ctx context.Context) (string, error) {
 	// Try to get origin remote URL first
-	cmd := exec.Command("git", "remote", "get-url", "origin")
+	cmd := exec.CommandContext(ctx, "git", "remote", "get-url", "origin")
 	output, err := cmd.Output()
 	if err != nil {
 		// If origin doesn't exist, try to get any remote
-		cmd = exec.Command("git", "remote")
+		cmd = exec.CommandContext(ctx, "git", "remote")
 		remotesOutput, err := cmd.Output()
 		if err != nil {
 			return "", fmt.Errorf("git repository not found in current directory\nPlease specify repository using --repo flag (e.g., --repo owner/repo)")
@@ -32,7 +32,7 @@ func DetectGitHubRepository() (string, error) {
 		}
 
 		// Get URL of the first remote
-		cmd = exec.Command("git", "remote", "get-url", remotes[0])
+		cmd = exec.CommandContext(ctx, "git", "remote", "get-url", remotes[0]) //nolint:gosec // G204: remotes come from git config, not user input
 		output, err = cmd.Output()
 		if err != nil {
 			return "", fmt.Errorf("failed to get git remote URL\nPlease specify repository using --repo flag (e.g., --repo owner/repo)")
@@ -92,7 +92,7 @@ func NewGitHubClientWrapper() (*GitHubClientWrapper, error) {
 // Priority: gh CLI > GITHUB_TOKEN env > config file.
 func resolveGitHubToken() string {
 	// 1. Try gh CLI
-	cmd := exec.Command("gh", "auth", "token")
+	cmd := exec.CommandContext(context.Background(), "gh", "auth", "token")
 	if output, err := cmd.Output(); err == nil {
 		token := strings.TrimSpace(string(output))
 		if token != "" {
