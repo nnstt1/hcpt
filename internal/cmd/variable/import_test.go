@@ -22,15 +22,15 @@ func TestVariableImport_Create(t *testing.T) {
 		createVar: &tfe.Variable{},
 	}
 
-	oldStdout := os.Stdout
+	oldStderr := os.Stderr
 	r, w, _ := os.Pipe()
-	os.Stdout = w
+	os.Stderr = w
 
 	filename := filepath.Join("testdata", "test.tfvars")
 	err := runVariableImport(mock, "test-org", "my-ws", filename, tfe.CategoryTerraform, false, false, false)
 
 	_ = w.Close()
-	os.Stdout = oldStdout
+	os.Stderr = oldStderr
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -65,16 +65,16 @@ func TestVariableImport_Update(t *testing.T) {
 		updateVar: &tfe.Variable{},
 	}
 
-	oldStdout := os.Stdout
+	oldStderr := os.Stderr
 	r, w, _ := os.Pipe()
-	os.Stdout = w
+	os.Stderr = w
 
 	filename := filepath.Join("testdata", "test.tfvars.json")
 	// overwrite=true で自動上書き
 	err := runVariableImport(mock, "test-org", "my-ws", filename, tfe.CategoryTerraform, false, true, false)
 
 	_ = w.Close()
-	os.Stdout = oldStdout
+	os.Stderr = oldStderr
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -104,15 +104,15 @@ func TestVariableImport_DryRun(t *testing.T) {
 		variables: []*tfe.Variable{},
 	}
 
-	oldStdout := os.Stdout
+	oldStderr := os.Stderr
 	r, w, _ := os.Pipe()
-	os.Stdout = w
+	os.Stderr = w
 
 	filename := filepath.Join("testdata", "test.tfvars")
 	err := runVariableImport(mock, "test-org", "my-ws", filename, tfe.CategoryTerraform, false, false, true)
 
 	_ = w.Close()
-	os.Stdout = oldStdout
+	os.Stderr = oldStderr
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -197,15 +197,15 @@ func TestVariableImport_CreateError(t *testing.T) {
 		createErr: fmt.Errorf("API error"),
 	}
 
-	oldStdout := os.Stdout
+	oldStderr := os.Stderr
 	r, w, _ := os.Pipe()
-	os.Stdout = w
+	os.Stderr = w
 
 	filename := filepath.Join("testdata", "test.tfvars")
 	err := runVariableImport(mock, "test-org", "my-ws", filename, tfe.CategoryTerraform, false, false, false)
 
 	_ = w.Close()
-	os.Stdout = oldStdout
+	os.Stderr = oldStderr
 
 	var buf bytes.Buffer
 	_, _ = buf.ReadFrom(r)
@@ -235,14 +235,14 @@ func TestVariableImport_EmptyFile(t *testing.T) {
 		variables: []*tfe.Variable{},
 	}
 
-	oldStdout := os.Stdout
+	oldStderr := os.Stderr
 	r, w, _ := os.Pipe()
-	os.Stdout = w
+	os.Stderr = w
 
 	err = runVariableImport(mock, "test-org", "my-ws", tmpFile, tfe.CategoryTerraform, false, false, false)
 
 	_ = w.Close()
-	os.Stdout = oldStdout
+	os.Stderr = oldStderr
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

@@ -92,7 +92,7 @@ func runVariableImport(svc variableImportService, org, workspaceName, filename s
 	}
 
 	if len(vars) == 0 {
-		fmt.Println("No variables found in file")
+		fmt.Fprintln(os.Stderr, "No variables found in file")
 		return nil
 	}
 
@@ -121,7 +121,7 @@ func runVariableImport(svc variableImportService, org, workspaceName, filename s
 	skippedCount := 0
 
 	for i, variable := range vars {
-		fmt.Printf("[%d/%d] Setting variable: %s...\n", i+1, len(vars), variable.Key)
+		fmt.Fprintf(os.Stderr, "[%d/%d] Setting variable: %s...\n", i+1, len(vars), variable.Key)
 
 		existing, exists := existingVars[variable.Key]
 
@@ -132,7 +132,7 @@ func runVariableImport(svc variableImportService, org, workspaceName, filename s
 				return fmt.Errorf("failed to read user input: %w", err)
 			}
 			if !ok {
-				fmt.Printf("  Skipped variable %q\n", variable.Key)
+				fmt.Fprintf(os.Stderr, "  Skipped variable %q\n", variable.Key)
 				skippedCount++
 				continue
 			}
@@ -141,9 +141,9 @@ func runVariableImport(svc variableImportService, org, workspaceName, filename s
 		// Dry-run チェック
 		if dryRun {
 			if exists {
-				fmt.Printf("  [DRY RUN] Would update variable %q\n", variable.Key)
+				fmt.Fprintf(os.Stderr, "  [DRY RUN] Would update variable %q\n", variable.Key)
 			} else {
-				fmt.Printf("  [DRY RUN] Would create variable %q\n", variable.Key)
+				fmt.Fprintf(os.Stderr, "  [DRY RUN] Would create variable %q\n", variable.Key)
 			}
 			continue
 		}
@@ -160,7 +160,7 @@ func runVariableImport(svc variableImportService, org, workspaceName, filename s
 			if err != nil {
 				return fmt.Errorf("failed to update variable %q: %w", variable.Key, err)
 			}
-			fmt.Printf("  ✓ Updated variable %q\n", variable.Key)
+			fmt.Fprintf(os.Stderr, "  ✓ Updated variable %q\n", variable.Key)
 			updatedCount++
 		} else {
 			opts := tfe.VariableCreateOptions{
@@ -174,22 +174,22 @@ func runVariableImport(svc variableImportService, org, workspaceName, filename s
 			if err != nil {
 				return fmt.Errorf("failed to create variable %q: %w", variable.Key, err)
 			}
-			fmt.Printf("  ✓ Created variable %q\n", variable.Key)
+			fmt.Fprintf(os.Stderr, "  ✓ Created variable %q\n", variable.Key)
 			createdCount++
 		}
 	}
 
 	// 6. サマリー表示
 	if !dryRun {
-		fmt.Printf("\nSuccessfully imported %d variable(s) to workspace %q\n", createdCount+updatedCount, workspaceName)
+		fmt.Fprintf(os.Stderr, "\nSuccessfully imported %d variable(s) to workspace %q\n", createdCount+updatedCount, workspaceName)
 		if createdCount > 0 {
-			fmt.Printf("  Created: %d\n", createdCount)
+			fmt.Fprintf(os.Stderr, "  Created: %d\n", createdCount)
 		}
 		if updatedCount > 0 {
-			fmt.Printf("  Updated: %d\n", updatedCount)
+			fmt.Fprintf(os.Stderr, "  Updated: %d\n", updatedCount)
 		}
 		if skippedCount > 0 {
-			fmt.Printf("  Skipped: %d\n", skippedCount)
+			fmt.Fprintf(os.Stderr, "  Skipped: %d\n", skippedCount)
 		}
 	}
 

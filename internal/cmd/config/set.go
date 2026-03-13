@@ -60,6 +60,6 @@ func runConfigSet(key, value string) error {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
-	fmt.Printf("Set %q to %q in %s\n", key, value, configPath)
+	fmt.Fprintf(os.Stderr, "Set %q to %q in %s\n", key, value, configPath)
 	return nil
 }

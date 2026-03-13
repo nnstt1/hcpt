@@ -26,14 +26,14 @@ func TestVariableDelete_Success(t *testing.T) {
 		},
 	}
 
-	oldStdout := os.Stdout
+	oldStderr := os.Stderr
 	r, w, _ := os.Pipe()
-	os.Stdout = w
+	os.Stderr = w
 
 	err := runVariableDelete(mock, "test-org", "my-ws", "MY_VAR", tfe.CategoryTerraform)
 
 	_ = w.Close()
-	os.Stdout = oldStdout
+	os.Stderr = oldStderr
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
