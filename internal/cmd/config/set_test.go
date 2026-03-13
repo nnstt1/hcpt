@@ -20,7 +20,7 @@ func TestRunConfigSet(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		data, err := os.ReadFile(configPath)
+		data, err := os.ReadFile(configPath) //nolint:gosec // G304: test reads a temp file path
 		if err != nil {
 			t.Fatalf("failed to read config: %v", err)
 		}
@@ -52,7 +52,7 @@ func TestRunConfigSet(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		result, err := os.ReadFile(configPath)
+		result, err := os.ReadFile(configPath) //nolint:gosec // G304: test reads a temp file path
 		if err != nil {
 			t.Fatalf("failed to read config: %v", err)
 		}
@@ -87,7 +87,7 @@ func TestRunConfigSet(t *testing.T) {
 		}
 
 		configPath := filepath.Join(home, ".hcpt.yaml")
-		data, err := os.ReadFile(configPath)
+		data, err := os.ReadFile(configPath) //nolint:gosec // G304: test reads a temp file path
 		if err != nil {
 			t.Fatalf("failed to read config: %v", err)
 		}

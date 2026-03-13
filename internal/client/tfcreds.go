@@ -50,7 +50,7 @@ func findTokenFromCredentialsJSON(hostname string) string {
 	}
 
 	path := filepath.Join(home, ".terraform.d", "credentials.tfrc.json")
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // G304: path is constructed from home dir, not user-controlled input
 	if err != nil {
 		return ""
 	}
@@ -80,7 +80,7 @@ type terraformRCCredential struct {
 // findTokenFromTerraformRC reads token from .terraformrc (HCL format).
 func findTokenFromTerraformRC(hostname string) string {
 	path := terraformRCPath()
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // G304: path is constructed from home dir, not user-controlled input
 	if err != nil {
 		return ""
 	}

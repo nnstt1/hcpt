@@ -92,7 +92,7 @@ func newCmdRunShowWith(clientFn runShowClientFactory) *cobra.Command {
 
 			if prNumber > 0 && repoFullName == "" {
 				// Try to auto-detect repository from Git remote
-				detectedRepo, err := client.DetectGitHubRepository()
+				detectedRepo, err := client.DetectGitHubRepository(context.Background())
 				if err != nil {
 					return err
 				}
@@ -149,13 +149,14 @@ func runRunShowWithInterval(svc runShowService, runID string, org string, worksp
 	var r *tfe.Run
 	var err error
 
-	// If run-id is specified, use it directly
-	if runID != "" {
+	switch {
+	case runID != "":
+		// If run-id is specified, use it directly
 		r, err = svc.ReadRun(ctx, runID)
 		if err != nil {
 			return fmt.Errorf("failed to read run %q: %w", runID, err)
 		}
-	} else if workspaceName != "" {
+	case workspaceName != "":
 		// Get latest run for workspace
 		ws, err := svc.ReadWorkspace(ctx, org, workspaceName)
 		if err != nil {
@@ -180,7 +181,7 @@ func runRunShowWithInterval(svc runShowService, runID string, org string, worksp
 		if err != nil {
 			return fmt.Errorf("failed to read run %q: %w", runID, err)
 		}
-	} else {
+	default:
 		return fmt.Errorf("either run-id or --workspace/-w is required")
 	}
 

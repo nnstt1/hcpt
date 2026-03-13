@@ -417,7 +417,7 @@ func retryAfterDuration(header string, attempt int) time.Duration {
 		return time.Duration(seconds) * time.Second
 	}
 	// Exponential backoff: 1s, 2s, 4s
-	return time.Duration(1<<uint(attempt)) * time.Second
+	return time.Duration(1<<uint(attempt)) * time.Second //nolint:gosec // G115: attempt is bounded (max retries ~3), overflow not possible
 }
 
 // parseAssessmentResponse extracts assessment result from the JSON:API response.
@@ -542,7 +542,7 @@ func parseAssessmentJSONOutput(body []byte) ([]DriftedResource, error) {
 }
 
 // ReadSubscription fetches subscription info from the organizations API.
-func (c *ClientWrapper) ReadSubscription(_ context.Context, org string) (*SubscriptionInfo, error) {
+func (c *ClientWrapper) ReadSubscription(ctx context.Context, org string) (*SubscriptionInfo, error) {
 	address := c.address
 	if address == "" {
 		address = "https://app.terraform.io"
@@ -550,7 +550,7 @@ func (c *ClientWrapper) ReadSubscription(_ context.Context, org string) (*Subscr
 
 	apiURL := strings.TrimRight(address, "/") + "/api/v2/organizations/" + url.PathEscape(org) + "/subscription"
 
-	req, err := http.NewRequest("GET", apiURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

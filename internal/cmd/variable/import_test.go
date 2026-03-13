@@ -224,7 +224,7 @@ func TestVariableImport_EmptyFile(t *testing.T) {
 
 	// Create empty test file
 	tmpFile := filepath.Join(os.TempDir(), "empty.tfvars.json")
-	err := os.WriteFile(tmpFile, []byte("{}"), 0644)
+	err := os.WriteFile(tmpFile, []byte("{}"), 0600)
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
