@@ -83,7 +83,7 @@ func TestWorkspaceList_Table_Output(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runWorkspaceList(mock, "test-org", "")
+	err := runWorkspaceList(mock, "test-org", "", "")
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -125,7 +125,7 @@ func TestWorkspaceList_JSON(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runWorkspaceList(mock, "test-org", "")
+	err := runWorkspaceList(mock, "test-org", "", "")
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -282,7 +282,7 @@ func TestWorkspaceList_Pagination(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runWorkspaceList(mock, "test-org", "")
+	err := runWorkspaceList(mock, "test-org", "", "")
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -300,5 +300,134 @@ func TestWorkspaceList_Pagination(t *testing.T) {
 	}
 	if !strings.Contains(got, "ws-page2") {
 		t.Errorf("expected 'ws-page2' in output, got:\n%s", got)
+	}
+}
+
+// mockExplorerServiceCapturing captures opts passed to ListExplorerWorkspaces.
+type mockExplorerServiceCapturing struct {
+	items        []client.ExplorerWorkspace
+	capturedOpts []client.ExplorerListOptions
+}
+
+func (m *mockExplorerServiceCapturing) ListExplorerWorkspaces(_ context.Context, _ string, opts client.ExplorerListOptions) (*client.ExplorerWorkspaceList, error) {
+	m.capturedOpts = append(m.capturedOpts, opts)
+	return &client.ExplorerWorkspaceList{
+		Items:      m.items,
+		TotalPages: 1,
+	}, nil
+}
+
+func TestWorkspaceList_RunStatusFilter_Single(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+	viper.Set("org", "test-org")
+
+	mock := &mockExplorerServiceCapturing{
+		items: []client.ExplorerWorkspace{
+			{WorkspaceName: "ws-applied", WorkspaceID: "ws-1", CurrentRunStatus: "applied"},
+		},
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runWorkspaceList(mock, "test-org", "", "applied")
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify server-side filter was set in opts
+	if len(mock.capturedOpts) == 0 {
+		t.Fatal("expected at least one call to ListExplorerWorkspaces")
+	}
+	if mock.capturedOpts[0].RunStatus != "applied" {
+		t.Errorf("expected RunStatus=applied in opts, got: %q", mock.capturedOpts[0].RunStatus)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
+
+	if !strings.Contains(got, "ws-applied") {
+		t.Errorf("expected 'ws-applied' in output, got:\n%s", got)
+	}
+}
+
+func TestWorkspaceList_RunStatusFilter_Multiple(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+	viper.Set("org", "test-org")
+
+	mock := &mockExplorerService{
+		items: []client.ExplorerWorkspace{
+			{WorkspaceName: "ws-applied", WorkspaceID: "ws-1", CurrentRunStatus: "applied"},
+			{WorkspaceName: "ws-errored", WorkspaceID: "ws-2", CurrentRunStatus: "errored"},
+			{WorkspaceName: "ws-planned", WorkspaceID: "ws-3", CurrentRunStatus: "planned"},
+		},
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runWorkspaceList(mock, "test-org", "", "applied,errored")
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
+
+	if !strings.Contains(got, "ws-applied") {
+		t.Errorf("expected 'ws-applied' in output, got:\n%s", got)
+	}
+	if !strings.Contains(got, "ws-errored") {
+		t.Errorf("expected 'ws-errored' in output, got:\n%s", got)
+	}
+	if strings.Contains(got, "ws-planned") {
+		t.Errorf("expected 'ws-planned' to be filtered out, got:\n%s", got)
+	}
+}
+
+func TestWorkspaceList_RunStatusFilter_NoMatch(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+	viper.Set("org", "test-org")
+
+	mock := &mockExplorerService{
+		items: []client.ExplorerWorkspace{
+			{WorkspaceName: "ws-planned", WorkspaceID: "ws-1", CurrentRunStatus: "planned"},
+		},
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runWorkspaceList(mock, "test-org", "", "applied,errored")
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
+
+	if strings.Contains(got, "ws-planned") {
+		t.Errorf("expected no workspaces in output, got:\n%s", got)
 	}
 }
