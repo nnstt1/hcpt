@@ -26,6 +26,7 @@ hcpt
 ├── org list          # List organizations
 ├── org show          # Show organization details, contract plan, and entitlements
 ├── project list      # List projects within an organization
+├── project show      # Show project details
 ├── drift list        # List drifted workspaces (--all for all results)
 ├── drift show        # Show drift detection details for a specific workspace
 ├── workspace list    # List workspaces within an organization

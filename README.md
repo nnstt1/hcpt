@@ -93,6 +93,9 @@ hcpt org show --org my-org
 ```bash
 # List projects in an organization
 hcpt project list --org my-org
+
+# Show project details
+hcpt project show my-project --org my-org
 ```
 
 ### Workspaces
