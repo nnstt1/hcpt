@@ -220,17 +220,20 @@ hcpt embeds [Agent Skills](https://agentskills.io/) that help AI coding assistan
 # List embedded skills
 hcpt skills list
 
-# Install skills for Claude Code
+# Install skills to ~/.agents/skills (default)
+hcpt skills install
+
+# Install skills to a custom directory (e.g. Claude Code)
 hcpt skills install --prefix ~/.claude/skills
 
-# Check installation status
-hcpt skills status --prefix ~/.claude/skills
+# Install skills to the current repository
+hcpt skills install --scope repo
 
-# Dry-run to see what would be installed
-hcpt skills install --prefix ~/.claude/skills --dry-run
+# Check installation status
+hcpt skills status
 
 # Update skills to latest version
-hcpt skills update --prefix ~/.claude/skills
+hcpt skills update
 ```
 
 Available skills:
