@@ -209,6 +209,34 @@ hcpt config list
 
 値は `~/.hcpt.yaml` に保存されます。既存の設定値は保持されます。
 
+### Agent Skills
+
+hcpt には [Agent Skills](https://agentskills.io/) が組み込まれており、AI コーディングアシスタント（Claude Code など）が hcpt をより効果的に活用できます。
+
+```bash
+# 組み込みスキル一覧
+hcpt skills list
+
+# Claude Code 向けにスキルをインストール
+hcpt skills install --prefix ~/.claude/skills
+
+# インストール状態を確認
+hcpt skills status --prefix ~/.claude/skills
+
+# ドライランでインストール内容を確認
+hcpt skills install --prefix ~/.claude/skills --dry-run
+
+# スキルを最新バージョンに更新
+hcpt skills update --prefix ~/.claude/skills
+```
+
+利用可能なスキル:
+
+| スキル | 説明 |
+|--------|------|
+| `hcpt-troubleshooting` | HCP Terraform の Run 失敗をデバッグ |
+| `hcpt-drift-analysis` | インフラのドリフトを分析・解消 |
+
 ### 共通オプション
 
 | フラグ | 説明 |
