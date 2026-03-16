@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -12,12 +13,20 @@ import (
 	"github.com/nnstt1/hcpt/internal/cmd/org"
 	"github.com/nnstt1/hcpt/internal/cmd/project"
 	"github.com/nnstt1/hcpt/internal/cmd/run"
+	"github.com/nnstt1/hcpt/internal/cmd/skills"
 	"github.com/nnstt1/hcpt/internal/cmd/variable"
 	"github.com/nnstt1/hcpt/internal/cmd/workspace"
 	"github.com/nnstt1/hcpt/internal/version"
 )
 
-var cfgFile string
+var (
+	cfgFile  string
+	skillsFS fs.FS
+)
+
+func SetSkillsFS(f fs.FS) {
+	skillsFS = f
+}
 
 var rootCmd = &cobra.Command{
 	Use:     "hcpt",
@@ -27,6 +36,9 @@ var rootCmd = &cobra.Command{
 }
 
 func Execute() error {
+	if skillsFS != nil {
+		rootCmd.AddCommand(skills.NewCmdSkills(skillsFS))
+	}
 	return rootCmd.Execute()
 }
 

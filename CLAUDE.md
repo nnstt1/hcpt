@@ -15,6 +15,7 @@ A CLI tool to retrieve HCP Terraform configurations and workspace information.
 - **API clients**:
   - [go-tfe](https://github.com/hashicorp/go-tfe) (Official Go client for HCP Terraform / Terraform Enterprise)
   - [go-github](https://github.com/google/go-github) (GitHub API v3 client)
+  - [skillsmith](https://github.com/Songmu/skillsmith) (Agent Skills embedding and distribution)
 - **Linter**: golangci-lint
 - **Release**: GoReleaser
 - **CI**: GitHub Actions
@@ -39,7 +40,8 @@ hcpt
 ├── variable delete   # Delete a variable
 ├── config set        # Save a configuration value
 ├── config get        # Get a configuration value
-└── config list       # List all configuration values
+├── config list       # List all configuration values
+└── skills            # Manage agent skills for AI coding assistants (powered by skillsmith)
 ```
 
 ## Output Format
@@ -149,14 +151,18 @@ The parser checks `resource_drift` first. If empty, it falls back to `resource_c
 ## Architecture
 
 ```
-├── main.go                  # Entry point
+├── main.go                  # Entry point (includes embed.FS for skills)
+├── skills/                  # Agent Skills (SKILL.md files embedded into binary)
+│   ├── hcpt-troubleshooting/
+│   └── hcpt-drift-analysis/
 ├── internal/
 │   ├── cmd/                 # Cobra command definitions
 │   │   ├── root.go          # Root command (includes Viper initialization)
 │   │   ├── drift/           # drift subcommand
 │   │   ├── org/             # org subcommand
 │   │   ├── workspace/       # workspace subcommand
-│   │   └── run/             # run subcommand
+│   │   ├── run/             # run subcommand
+│   │   └── skills/          # skills subcommand (skillsmith integration)
 │   ├── client/              # Wrapper for go-tfe client
 │   └── output/              # Formatter for table/JSON output
 ├── .golangci.yml            # golangci-lint configuration
