@@ -212,6 +212,37 @@ hcpt config list
 
 Values are saved to `~/.hcpt.yaml`. Existing values are preserved.
 
+### Agent Skills
+
+hcpt embeds [Agent Skills](https://agentskills.io/) that help AI coding assistants (such as Claude Code) use hcpt more effectively.
+
+```bash
+# List embedded skills
+hcpt skills list
+
+# Install skills to ~/.agents/skills (default)
+hcpt skills install
+
+# Install skills to a custom directory (e.g. Claude Code)
+hcpt skills install --prefix ~/.claude/skills
+
+# Install skills to the current repository
+hcpt skills install --scope repo
+
+# Check installation status
+hcpt skills status
+
+# Update skills to latest version
+hcpt skills update
+```
+
+Available skills:
+
+| Skill | Description |
+|-------|-------------|
+| `hcpt-troubleshooting` | Debug HCP Terraform run failures |
+| `hcpt-drift-analysis` | Analyze and resolve infrastructure drift |
+
 ### Common Options
 
 | Flag | Description |
