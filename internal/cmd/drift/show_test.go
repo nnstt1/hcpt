@@ -878,3 +878,79 @@ func TestComputeDiffs_SensitiveValue_ParentKey(t *testing.T) {
 		t.Error("expected Sensitive=true")
 	}
 }
+
+// TestComputeDiffs_BoolSensitive verifies that computeDiffs handles bool values
+// for beforeSensitive/afterSensitive (returned by HCP Terraform when no sensitive attributes exist).
+func TestComputeDiffs_BoolSensitive(t *testing.T) {
+	before := map[string]interface{}{
+		"name": "old",
+	}
+	after := map[string]interface{}{
+		"name": "new",
+	}
+
+	// bool false means no sensitive attributes
+	diffs := computeDiffs(before, after, nil, false, false)
+
+	if len(diffs) != 1 {
+		t.Fatalf("expected 1 diff, got %d: %+v", len(diffs), diffs)
+	}
+	d := diffs[0]
+	if d.Key != "name" {
+		t.Errorf("expected key 'name', got %q", d.Key)
+	}
+	if d.Before != `"old"` {
+		t.Errorf("expected Before '\"old\"', got %q", d.Before)
+	}
+	if d.After != `"new"` {
+		t.Errorf("expected After '\"new\"', got %q", d.After)
+	}
+	if d.Sensitive {
+		t.Error("expected Sensitive=false")
+	}
+}
+
+// TestComputeDiffs_MixedSensitive verifies that computeDiffs handles the case where
+// beforeSensitive is a map but afterSensitive is a bool (or vice versa).
+func TestComputeDiffs_MixedSensitive(t *testing.T) {
+	before := map[string]interface{}{
+		"password": "secret",
+		"name":     "old",
+	}
+	after := map[string]interface{}{
+		"password": "newsecret",
+		"name":     "new",
+	}
+
+	// beforeSensitive is a map, afterSensitive is bool false
+	beforeSensitive := map[string]interface{}{
+		"password": true,
+	}
+
+	diffs := computeDiffs(before, after, nil, beforeSensitive, false)
+
+	if len(diffs) != 2 {
+		t.Fatalf("expected 2 diffs, got %d: %+v", len(diffs), diffs)
+	}
+
+	// Sort by key for predictable order
+	diffMap := make(map[string]attributeDiff)
+	for _, d := range diffs {
+		diffMap[d.Key] = d
+	}
+
+	// "name" should not be sensitive
+	nameD := diffMap["name"]
+	if nameD.Sensitive {
+		t.Error("expected name Sensitive=false")
+	}
+
+	// "password" should be sensitive (marked in beforeSensitive)
+	pwD := diffMap["password"]
+	if !pwD.Sensitive {
+		t.Error("expected password Sensitive=true")
+	}
+	if pwD.Before != "(sensitive value)" {
+		t.Errorf("expected Before '(sensitive value)', got %q", pwD.Before)
+	}
+}

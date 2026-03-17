@@ -248,7 +248,7 @@ func isKnownAfterApply(key string, flatAfterUnknown map[string]interface{}) bool
 // computeDiffs compares before and after maps and returns sorted attribute diffs.
 // afterUnknown marks attributes whose after value will be known only after apply.
 // beforeSensitive/afterSensitive mark attributes whose values must not be displayed.
-func computeDiffs(before, after, afterUnknown, beforeSensitive, afterSensitive map[string]interface{}) []attributeDiff { //nolint:gocyclo // complex by nature, refactor tracked in separate issue
+func computeDiffs(before, after, afterUnknown map[string]interface{}, beforeSensitive, afterSensitive interface{}) []attributeDiff { //nolint:gocyclo // complex by nature, refactor tracked in separate issue
 	flatBefore := make(map[string]interface{})
 	flatAfter := make(map[string]interface{})
 	flatAfterUnknown := make(map[string]interface{})
@@ -264,11 +264,11 @@ func computeDiffs(before, after, afterUnknown, beforeSensitive, afterSensitive m
 	if afterUnknown != nil {
 		flattenMap("", afterUnknown, flatAfterUnknown)
 	}
-	if beforeSensitive != nil {
-		flattenMap("", beforeSensitive, flatBeforeSensitive)
+	if m, ok := beforeSensitive.(map[string]interface{}); ok {
+		flattenMap("", m, flatBeforeSensitive)
 	}
-	if afterSensitive != nil {
-		flattenMap("", afterSensitive, flatAfterSensitive)
+	if m, ok := afterSensitive.(map[string]interface{}); ok {
+		flattenMap("", m, flatAfterSensitive)
 	}
 
 	// Collect all keys from before and after

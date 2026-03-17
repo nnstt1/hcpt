@@ -77,8 +77,8 @@ type DriftedResource struct {
 	Before          map[string]interface{}
 	After           map[string]interface{}
 	AfterUnknown    map[string]interface{}
-	BeforeSensitive map[string]interface{}
-	AfterSensitive  map[string]interface{}
+	BeforeSensitive interface{}
+	AfterSensitive  interface{}
 }
 
 // AssessmentService provides operations to read workspace assessment results.
@@ -494,8 +494,8 @@ type resourceChange struct {
 		Before          map[string]interface{} `json:"before"`
 		After           map[string]interface{} `json:"after"`
 		AfterUnknown    map[string]interface{} `json:"after_unknown"`
-		BeforeSensitive map[string]interface{} `json:"before_sensitive"`
-		AfterSensitive  map[string]interface{} `json:"after_sensitive"`
+		BeforeSensitive interface{}            `json:"before_sensitive"`
+		AfterSensitive  interface{}            `json:"after_sensitive"`
 	} `json:"change"`
 }
 

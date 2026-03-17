@@ -472,3 +472,84 @@ func TestParseAssessmentJSONOutput_FiltersNoOp(t *testing.T) {
 		t.Error("expected Before to be non-nil")
 	}
 }
+
+func TestParseAssessmentJSONOutput_BoolSensitive(t *testing.T) {
+	// before_sensitive/after_sensitive can be bool (false) when no sensitive attributes exist
+	jsonBody := []byte(`{
+		"resource_changes": [
+			{
+				"address": "aws_instance.test",
+				"type": "aws_instance",
+				"name": "test",
+				"change": {
+					"actions": ["update"],
+					"before": {"ami": "ami-old"},
+					"after": {"ami": "ami-new"},
+					"after_unknown": {},
+					"before_sensitive": false,
+					"after_sensitive": false
+				}
+			}
+		]
+	}`)
+
+	resources, err := parseAssessmentJSONOutput(jsonBody)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resources) != 1 {
+		t.Fatalf("expected 1 resource, got %d", len(resources))
+	}
+	r := resources[0]
+	if r.Address != "aws_instance.test" {
+		t.Errorf("expected address 'aws_instance.test', got %q", r.Address)
+	}
+	// BeforeSensitive/AfterSensitive should be bool false, not nil
+	if r.BeforeSensitive != false {
+		t.Errorf("expected BeforeSensitive=false, got %v", r.BeforeSensitive)
+	}
+	if r.AfterSensitive != false {
+		t.Errorf("expected AfterSensitive=false, got %v", r.AfterSensitive)
+	}
+}
+
+func TestParseAssessmentJSONOutput_MixedSensitive(t *testing.T) {
+	// before_sensitive is a map, after_sensitive is bool false
+	jsonBody := []byte(`{
+		"resource_changes": [
+			{
+				"address": "aws_instance.test",
+				"type": "aws_instance",
+				"name": "test",
+				"change": {
+					"actions": ["update"],
+					"before": {"ami": "ami-old", "password": "secret"},
+					"after": {"ami": "ami-new", "password": "newsecret"},
+					"after_unknown": {},
+					"before_sensitive": {"password": true},
+					"after_sensitive": false
+				}
+			}
+		]
+	}`)
+
+	resources, err := parseAssessmentJSONOutput(jsonBody)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resources) != 1 {
+		t.Fatalf("expected 1 resource, got %d", len(resources))
+	}
+	r := resources[0]
+
+	bsMap, ok := r.BeforeSensitive.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected BeforeSensitive to be map, got %T", r.BeforeSensitive)
+	}
+	if bsMap["password"] != true {
+		t.Errorf("expected BeforeSensitive['password']=true, got %v", bsMap["password"])
+	}
+	if r.AfterSensitive != false {
+		t.Errorf("expected AfterSensitive=false, got %v", r.AfterSensitive)
+	}
+}
