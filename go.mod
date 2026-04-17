@@ -3,14 +3,14 @@ module github.com/nnstt1/hcpt
 go 1.25.6
 
 require (
-	github.com/Songmu/skillsmith v0.0.2
+	github.com/Songmu/skillsmith v0.1.0
 	github.com/google/go-github/v83 v83.0.0
 	github.com/google/go-github/v84 v84.0.0
-	github.com/hashicorp/go-tfe v1.101.0
+	github.com/hashicorp/go-tfe v1.103.0
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
-	github.com/zclconf/go-cty v1.18.0
+	github.com/zclconf/go-cty v1.18.1
 	go.yaml.in/yaml/v3 v3.0.4
 )
 
