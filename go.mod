@@ -3,13 +3,13 @@ module github.com/nnstt1/hcpt
 go 1.25.6
 
 require (
-	github.com/Songmu/skillsmith v0.0.2
+	github.com/Songmu/skillsmith v0.1.0
 	github.com/google/go-github/v85 v85.0.0
-	github.com/hashicorp/go-tfe v1.101.0
+	github.com/hashicorp/go-tfe v1.105.0
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
-	github.com/zclconf/go-cty v1.18.0
+	github.com/zclconf/go-cty v1.18.1
 	go.yaml.in/yaml/v3 v3.0.4
 )
 
@@ -24,7 +24,7 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect
 	github.com/hashicorp/go-slug v0.16.8 // indirect
-	github.com/hashicorp/go-version v1.8.0 // indirect
+	github.com/hashicorp/go-version v1.9.0 // indirect
 	github.com/hashicorp/jsonapi v1.4.3-0.20250220162346-81a76b606f3e // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
