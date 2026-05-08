@@ -5,6 +5,7 @@ go 1.25.6
 require (
 	github.com/Songmu/skillsmith v0.1.0
 	github.com/google/go-github/v85 v85.0.0
+	github.com/google/go-github/v86 v86.0.0
 	github.com/hashicorp/go-tfe v1.105.0
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/spf13/cobra v1.10.2
