@@ -6,6 +6,7 @@ require (
 	github.com/Songmu/skillsmith v0.1.0
 	github.com/google/go-github/v85 v85.0.0
 	github.com/hashicorp/go-tfe v1.110.0
+	github.com/hashicorp/go-tfe/v2 v2.5.0
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
