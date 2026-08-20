@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 
+	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -15,6 +16,7 @@ import (
 
 type driftListService interface {
 	client.ExplorerService
+	client.ProjectService
 }
 
 type driftListClientFactory func() (driftListService, error)
@@ -29,6 +31,7 @@ func newCmdDriftList() *cobra.Command {
 
 func newCmdDriftListWith(clientFn driftListClientFactory) *cobra.Command {
 	var all bool
+	var project string
 
 	cmd := &cobra.Command{
 		Use:          "list",
@@ -44,13 +47,28 @@ func newCmdDriftListWith(clientFn driftListClientFactory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return runDriftList(svc, org, all)
+			return runDriftList(svc, org, all, project)
 		},
 	}
 
 	cmd.Flags().BoolVar(&all, "all", false, "show all workspaces (default: drifted only)")
+	cmd.Flags().StringVar(&project, "project", "", "filter results by project name")
 
 	return cmd
+}
+
+// verifyProjectExists checks that a project with the given name exists in the organization.
+func verifyProjectExists(ctx context.Context, svc client.ProjectService, org, name string) error {
+	projList, err := svc.ListProjects(ctx, org, &tfe.ProjectListOptions{Name: name})
+	if err != nil {
+		return fmt.Errorf("failed to list projects: %w", err)
+	}
+	for _, p := range projList.Items {
+		if p.Name == name {
+			return nil
+		}
+	}
+	return fmt.Errorf("project %q not found in organization %q", name, org)
 }
 
 type driftJSON struct {
@@ -60,15 +78,22 @@ type driftJSON struct {
 	ResourcesUndrifted int    `json:"resources_undrifted"`
 }
 
-func runDriftList(svc driftListService, org string, all bool) error {
+func runDriftList(svc driftListService, org string, all bool, project string) error {
 	ctx := context.Background()
 	driftedOnly := !all
+
+	if project != "" {
+		if err := verifyProjectExists(ctx, svc, org, project); err != nil {
+			return err
+		}
+	}
 
 	var allItems []client.ExplorerWorkspace
 	page := 1
 	for {
 		result, err := svc.ListExplorerWorkspaces(ctx, org, client.ExplorerListOptions{
 			DriftedOnly: driftedOnly,
+			ProjectName: project,
 			Page:        page,
 		})
 		if err != nil {
