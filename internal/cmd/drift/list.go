@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
+	"strings"
 
 	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/cobra"
@@ -31,7 +33,8 @@ func newCmdDriftList() *cobra.Command {
 
 func newCmdDriftListWith(clientFn driftListClientFactory) *cobra.Command {
 	var all bool
-	var project string
+	var projects []string
+	var excludeProjects []string
 
 	cmd := &cobra.Command{
 		Use:          "list",
@@ -47,28 +50,62 @@ func newCmdDriftListWith(clientFn driftListClientFactory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return runDriftList(svc, org, all, project)
+			return runDriftList(svc, org, all, projects, excludeProjects)
 		},
 	}
 
 	cmd.Flags().BoolVar(&all, "all", false, "show all workspaces (default: drifted only)")
-	cmd.Flags().StringVar(&project, "project", "", "filter results by project name")
+	cmd.Flags().StringArrayVar(&projects, "project", nil, "filter results by project name (can be repeated)")
+	cmd.Flags().StringArrayVar(&excludeProjects, "exclude-project", nil, "exclude results from this project name (can be repeated)")
 
 	return cmd
 }
 
-// verifyProjectExists checks that a project with the given name exists in the organization.
-func verifyProjectExists(ctx context.Context, svc client.ProjectService, org, name string) error {
-	projList, err := svc.ListProjects(ctx, org, &tfe.ProjectListOptions{Name: name})
-	if err != nil {
-		return fmt.Errorf("failed to list projects: %w", err)
-	}
-	for _, p := range projList.Items {
-		if p.Name == name {
-			return nil
+// verifyProjectsExist checks that a project with each given name exists in the organization.
+// It returns an error listing every name that could not be found.
+func verifyProjectsExist(ctx context.Context, svc client.ProjectService, org string, names []string) error {
+	var missing []string
+	for _, name := range names {
+		projList, err := svc.ListProjects(ctx, org, &tfe.ProjectListOptions{Name: name})
+		if err != nil {
+			return fmt.Errorf("failed to list projects: %w", err)
+		}
+		found := false
+		for _, p := range projList.Items {
+			if p.Name == name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			missing = append(missing, name)
 		}
 	}
-	return fmt.Errorf("project %q not found in organization %q", name, org)
+	if len(missing) > 0 {
+		return fmt.Errorf("projects not found in organization %q: %s", org, strings.Join(missing, ", "))
+	}
+	return nil
+}
+
+// filterByProject applies client-side include/exclude filtering by project name.
+// The Explorer API's filter query parameters only honor a single value index
+// per field+operator, so filtering by multiple project names must happen
+// client-side rather than via server-side filter query parameters.
+func filterByProject(items []client.ExplorerWorkspace, include, exclude []string) []client.ExplorerWorkspace {
+	if len(include) == 0 && len(exclude) == 0 {
+		return items
+	}
+	filtered := make([]client.ExplorerWorkspace, 0, len(items))
+	for _, item := range items {
+		if len(include) > 0 && !slices.Contains(include, item.ProjectName) {
+			continue
+		}
+		if slices.Contains(exclude, item.ProjectName) {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	return filtered
 }
 
 type driftJSON struct {
@@ -78,14 +115,21 @@ type driftJSON struct {
 	ResourcesUndrifted int    `json:"resources_undrifted"`
 }
 
-func runDriftList(svc driftListService, org string, all bool, project string) error {
+func runDriftList(svc driftListService, org string, all bool, projects []string, excludeProjects []string) error {
 	ctx := context.Background()
 	driftedOnly := !all
 
-	if project != "" {
-		if err := verifyProjectExists(ctx, svc, org, project); err != nil {
-			return err
+	for _, name := range projects {
+		if slices.Contains(excludeProjects, name) {
+			return fmt.Errorf("project %q specified in both --project and --exclude-project", name)
 		}
+	}
+
+	if err := verifyProjectsExist(ctx, svc, org, projects); err != nil {
+		return err
+	}
+	if err := verifyProjectsExist(ctx, svc, org, excludeProjects); err != nil {
+		return err
 	}
 
 	var allItems []client.ExplorerWorkspace
@@ -93,7 +137,6 @@ func runDriftList(svc driftListService, org string, all bool, project string) er
 	for {
 		result, err := svc.ListExplorerWorkspaces(ctx, org, client.ExplorerListOptions{
 			DriftedOnly: driftedOnly,
-			ProjectName: project,
 			Page:        page,
 		})
 		if err != nil {
@@ -105,6 +148,8 @@ func runDriftList(svc driftListService, org string, all bool, project string) er
 		}
 		page = result.NextPage
 	}
+
+	allItems = filterByProject(allItems, projects, excludeProjects)
 
 	if viper.GetBool("json") {
 		items := make([]driftJSON, 0, len(allItems))
