@@ -112,6 +112,7 @@ type ExplorerListOptions struct {
 	DriftedOnly bool
 	Search      string
 	RunStatus   string // filter by current run status (single value for server-side filtering)
+	ProjectName string // filter by project name (single value for server-side filtering)
 	Page        int
 }
 
@@ -270,6 +271,10 @@ func (c *ClientWrapper) ListExplorerWorkspaces(ctx context.Context, org string, 
 	}
 	if opts.RunStatus != "" {
 		params.Set(fmt.Sprintf("filter[%d][current-run-status][is][0]", filterIdx), opts.RunStatus)
+		filterIdx++
+	}
+	if opts.ProjectName != "" {
+		params.Set(fmt.Sprintf("filter[%d][project-name][is][0]", filterIdx), opts.ProjectName)
 	}
 
 	fullURL := apiURL + "?" + params.Encode()
