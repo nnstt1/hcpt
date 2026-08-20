@@ -108,11 +108,16 @@ type ExplorerWorkspaceList struct {
 }
 
 // ExplorerListOptions holds options for the Explorer API query.
+//
+// Project filtering is intentionally not exposed here: the Explorer API's
+// filter query parameters only honor the first value index for a given
+// field+operator pair, so multiple project names cannot be filtered
+// server-side. Callers needing to filter by project should do so
+// client-side using ExplorerWorkspace.ProjectName.
 type ExplorerListOptions struct {
 	DriftedOnly bool
 	Search      string
 	RunStatus   string // filter by current run status (single value for server-side filtering)
-	ProjectName string // filter by project name (single value for server-side filtering)
 	Page        int
 }
 
@@ -271,10 +276,6 @@ func (c *ClientWrapper) ListExplorerWorkspaces(ctx context.Context, org string, 
 	}
 	if opts.RunStatus != "" {
 		params.Set(fmt.Sprintf("filter[%d][current-run-status][is][0]", filterIdx), opts.RunStatus)
-		filterIdx++
-	}
-	if opts.ProjectName != "" {
-		params.Set(fmt.Sprintf("filter[%d][project-name][is][0]", filterIdx), opts.ProjectName)
 	}
 
 	fullURL := apiURL + "?" + params.Encode()
