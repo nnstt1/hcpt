@@ -62,7 +62,7 @@ func TestDriftList_DriftedOnly(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runDriftList(mock, "test-org", false, nil, nil)
+	err := runDriftList(mock, "test-org", false, nil, nil, nil, nil)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -100,7 +100,7 @@ func TestDriftList_All(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runDriftList(mock, "test-org", true, nil, nil)
+	err := runDriftList(mock, "test-org", true, nil, nil, nil, nil)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -135,7 +135,7 @@ func TestDriftList_JSON(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runDriftList(mock, "test-org", false, nil, nil)
+	err := runDriftList(mock, "test-org", false, nil, nil, nil, nil)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -212,7 +212,7 @@ func TestDriftList_ExplorerError(t *testing.T) {
 	_, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runDriftList(mock, "test-org", true, nil, nil)
+	err := runDriftList(mock, "test-org", true, nil, nil, nil, nil)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -238,7 +238,7 @@ func TestDriftList_EmptyResult(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runDriftList(mock, "test-org", false, nil, nil)
+	err := runDriftList(mock, "test-org", false, nil, nil, nil, nil)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -274,7 +274,7 @@ func TestDriftList_ProjectFilter(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runDriftList(mock, "test-org", false, []string{"my-project"}, nil)
+	err := runDriftList(mock, "test-org", false, []string{"my-project"}, nil, nil, nil)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -303,7 +303,7 @@ func TestDriftList_ProjectNotFound(t *testing.T) {
 		projects: []*tfe.Project{{Name: "other-project", ID: "prj-999"}},
 	}
 
-	err := runDriftList(mock, "test-org", false, []string{"missing-project"}, nil)
+	err := runDriftList(mock, "test-org", false, []string{"missing-project"}, nil, nil, nil)
 
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -334,7 +334,7 @@ func TestDriftList_MultipleProjectsFilter(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runDriftList(mock, "test-org", false, []string{"project-a", "project-b"}, nil)
+	err := runDriftList(mock, "test-org", false, []string{"project-a", "project-b"}, nil, nil, nil)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -372,7 +372,7 @@ func TestDriftList_ExcludeProjectFilter(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runDriftList(mock, "test-org", false, nil, []string{"project-a"})
+	err := runDriftList(mock, "test-org", false, nil, []string{"project-a"}, nil, nil)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -401,7 +401,7 @@ func TestDriftList_ProjectIncludeExcludeConflict(t *testing.T) {
 		projects: []*tfe.Project{{Name: "project-a", ID: "prj-a"}},
 	}
 
-	err := runDriftList(mock, "test-org", false, []string{"project-a"}, []string{"project-a"})
+	err := runDriftList(mock, "test-org", false, []string{"project-a"}, []string{"project-a"}, nil, nil)
 
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -419,13 +419,178 @@ func TestDriftList_ExcludeProjectNotFound(t *testing.T) {
 		projects: []*tfe.Project{{Name: "other-project", ID: "prj-999"}},
 	}
 
-	err := runDriftList(mock, "test-org", false, nil, []string{"missing-project"})
+	err := runDriftList(mock, "test-org", false, nil, []string{"missing-project"}, nil, nil)
 
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if !strings.Contains(err.Error(), `projects not found in organization "test-org": missing-project`) {
 		t.Errorf("expected 'projects not found' error, got: %v", err)
+	}
+}
+
+func TestDriftList_TagFilter_KeyOnly(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+	viper.Set("org", "test-org")
+
+	mock := &mockDriftListService{
+		items: []client.ExplorerWorkspace{
+			{WorkspaceName: "prod-vpc", Tags: []string{"production", "repo:frontend"}, Drifted: true, ResourcesDrifted: 3},
+			{WorkspaceName: "dev-vpc", Tags: []string{"development"}, Drifted: true, ResourcesDrifted: 1},
+		},
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runDriftList(mock, "test-org", false, nil, nil, []string{"production"}, nil)
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
+
+	if !strings.Contains(got, "prod-vpc") {
+		t.Errorf("expected 'prod-vpc' in output, got:\n%s", got)
+	}
+	if strings.Contains(got, "dev-vpc") {
+		t.Errorf("expected 'dev-vpc' to be filtered out, got:\n%s", got)
+	}
+}
+
+func TestDriftList_TagFilter_KeyMatchesKeyValue(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+	viper.Set("org", "test-org")
+
+	mock := &mockDriftListService{
+		items: []client.ExplorerWorkspace{
+			{WorkspaceName: "frontend-ws", Tags: []string{"repo:frontend"}, Drifted: true, ResourcesDrifted: 1},
+			{WorkspaceName: "other-ws", Tags: []string{"env:production"}, Drifted: true, ResourcesDrifted: 1},
+		},
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	// A bare "repo" filter should match the key-value tag "repo:frontend".
+	err := runDriftList(mock, "test-org", false, nil, nil, []string{"repo"}, nil)
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
+
+	if !strings.Contains(got, "frontend-ws") {
+		t.Errorf("expected 'frontend-ws' in output, got:\n%s", got)
+	}
+	if strings.Contains(got, "other-ws") {
+		t.Errorf("expected 'other-ws' to be filtered out, got:\n%s", got)
+	}
+}
+
+func TestDriftList_TagFilter_KeyValue(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+	viper.Set("org", "test-org")
+
+	mock := &mockDriftListService{
+		items: []client.ExplorerWorkspace{
+			{WorkspaceName: "frontend-ws", Tags: []string{"repo:frontend"}, Drifted: true, ResourcesDrifted: 1},
+			{WorkspaceName: "backend-ws", Tags: []string{"repo:backend"}, Drifted: true, ResourcesDrifted: 1},
+		},
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runDriftList(mock, "test-org", false, nil, nil, []string{"repo:frontend"}, nil)
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
+
+	if !strings.Contains(got, "frontend-ws") {
+		t.Errorf("expected 'frontend-ws' in output, got:\n%s", got)
+	}
+	if strings.Contains(got, "backend-ws") {
+		t.Errorf("expected 'backend-ws' to be filtered out, got:\n%s", got)
+	}
+}
+
+func TestDriftList_ExcludeTagFilter(t *testing.T) {
+	viper.Reset()
+	viper.Set("json", false)
+	viper.Set("org", "test-org")
+
+	mock := &mockDriftListService{
+		items: []client.ExplorerWorkspace{
+			{WorkspaceName: "prod-vpc", Tags: []string{"lifecycle:deprecated"}, Drifted: true, ResourcesDrifted: 1},
+			{WorkspaceName: "dev-vpc", Tags: []string{"lifecycle:active"}, Drifted: true, ResourcesDrifted: 1},
+		},
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runDriftList(mock, "test-org", false, nil, nil, nil, []string{"lifecycle:deprecated"})
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	got := buf.String()
+
+	if strings.Contains(got, "prod-vpc") {
+		t.Errorf("expected 'prod-vpc' (lifecycle:deprecated) to be excluded, got:\n%s", got)
+	}
+	if !strings.Contains(got, "dev-vpc") {
+		t.Errorf("expected 'dev-vpc' in output, got:\n%s", got)
+	}
+}
+
+func TestDriftList_TagIncludeExcludeConflict(t *testing.T) {
+	viper.Reset()
+	viper.Set("org", "test-org")
+
+	mock := &mockDriftListService{}
+
+	err := runDriftList(mock, "test-org", false, nil, nil, []string{"repo:frontend"}, []string{"repo:frontend"})
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), `tag "repo:frontend" specified in both --tag and --exclude-tag`) {
+		t.Errorf("expected conflict error, got: %v", err)
 	}
 }
 
@@ -469,7 +634,7 @@ func TestDriftList_Pagination(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runDriftList(mock, "test-org", false, nil, nil)
+	err := runDriftList(mock, "test-org", false, nil, nil, nil, nil)
 
 	_ = w.Close()
 	os.Stdout = oldStdout

@@ -35,6 +35,8 @@ func newCmdDriftListWith(clientFn driftListClientFactory) *cobra.Command {
 	var all bool
 	var projects []string
 	var excludeProjects []string
+	var tags []string
+	var excludeTags []string
 
 	cmd := &cobra.Command{
 		Use:          "list",
@@ -50,13 +52,15 @@ func newCmdDriftListWith(clientFn driftListClientFactory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return runDriftList(svc, org, all, projects, excludeProjects)
+			return runDriftList(svc, org, all, projects, excludeProjects, tags, excludeTags)
 		},
 	}
 
 	cmd.Flags().BoolVar(&all, "all", false, "show all workspaces (default: drifted only)")
 	cmd.Flags().StringArrayVar(&projects, "project", nil, "filter results by project name (can be repeated)")
 	cmd.Flags().StringArrayVar(&excludeProjects, "exclude-project", nil, "exclude results from this project name (can be repeated)")
+	cmd.Flags().StringArrayVar(&tags, "tag", nil, "filter results by tag as \"key\" or \"key:value\" (can be repeated)")
+	cmd.Flags().StringArrayVar(&excludeTags, "exclude-tag", nil, "exclude results with this tag as \"key\" or \"key:value\" (can be repeated)")
 
 	return cmd
 }
@@ -108,6 +112,76 @@ func filterByProject(items []client.ExplorerWorkspace, include, exclude []string
 	return filtered
 }
 
+// tagFilter is a parsed --tag/--exclude-tag argument: either a bare key
+// (matches a key-only tag, or any key-value tag with this key) or a
+// "key:value" pair (matches only that exact key-value tag).
+type tagFilter struct {
+	key      string
+	value    string
+	hasValue bool
+}
+
+func parseTagFilter(s string) tagFilter {
+	if key, value, found := strings.Cut(s, ":"); found {
+		return tagFilter{key: key, value: value, hasValue: true}
+	}
+	return tagFilter{key: s}
+}
+
+// matches reports whether any of the workspace's tags (each "key" or
+// "key:value") satisfies this filter.
+func (f tagFilter) matches(tags []string) bool {
+	for _, t := range tags {
+		key, value, hasValue := strings.Cut(t, ":")
+		if f.hasValue {
+			if hasValue && key == f.key && value == f.value {
+				return true
+			}
+		} else if key == f.key {
+			return true
+		}
+	}
+	return false
+}
+
+// filterByTag applies client-side include/exclude filtering by workspace tag.
+// As with filterByProject, this happens client-side because the Explorer
+// API's filter query parameters only honor a single value per field+operator.
+func filterByTag(items []client.ExplorerWorkspace, include, exclude []string) []client.ExplorerWorkspace {
+	if len(include) == 0 && len(exclude) == 0 {
+		return items
+	}
+	includeFilters := make([]tagFilter, len(include))
+	for i, s := range include {
+		includeFilters[i] = parseTagFilter(s)
+	}
+	excludeFilters := make([]tagFilter, len(exclude))
+	for i, s := range exclude {
+		excludeFilters[i] = parseTagFilter(s)
+	}
+
+	filtered := make([]client.ExplorerWorkspace, 0, len(items))
+	for _, item := range items {
+		if len(includeFilters) > 0 && !anyTagMatches(includeFilters, item.Tags) {
+			continue
+		}
+		if anyTagMatches(excludeFilters, item.Tags) {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	return filtered
+}
+
+func anyTagMatches(filters []tagFilter, tags []string) bool {
+	for _, f := range filters {
+		if f.matches(tags) {
+			return true
+		}
+	}
+	return false
+}
+
 type driftJSON struct {
 	Workspace          string `json:"workspace"`
 	Drifted            bool   `json:"drifted"`
@@ -115,13 +189,19 @@ type driftJSON struct {
 	ResourcesUndrifted int    `json:"resources_undrifted"`
 }
 
-func runDriftList(svc driftListService, org string, all bool, projects []string, excludeProjects []string) error {
+func runDriftList(svc driftListService, org string, all bool, projects []string, excludeProjects []string, tags []string, excludeTags []string) error {
 	ctx := context.Background()
 	driftedOnly := !all
 
 	for _, name := range projects {
 		if slices.Contains(excludeProjects, name) {
 			return fmt.Errorf("project %q specified in both --project and --exclude-project", name)
+		}
+	}
+
+	for _, tag := range tags {
+		if slices.Contains(excludeTags, tag) {
+			return fmt.Errorf("tag %q specified in both --tag and --exclude-tag", tag)
 		}
 	}
 
@@ -150,6 +230,7 @@ func runDriftList(svc driftListService, org string, all bool, projects []string,
 	}
 
 	allItems = filterByProject(allItems, projects, excludeProjects)
+	allItems = filterByTag(allItems, tags, excludeTags)
 
 	if viper.GetBool("json") {
 		items := make([]driftJSON, 0, len(allItems))

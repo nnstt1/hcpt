@@ -98,6 +98,10 @@ type ExplorerWorkspace struct {
 	Drifted            bool
 	ResourcesDrifted   int
 	ResourcesUndrifted int
+	// Tags holds each workspace tag as "key" (key-only tag) or "key:value"
+	// (key-value tag), as returned by the Explorer API's comma-separated
+	// "tags" attribute.
+	Tags []string
 }
 
 // ExplorerWorkspaceList holds the result of an Explorer API query.
@@ -109,11 +113,11 @@ type ExplorerWorkspaceList struct {
 
 // ExplorerListOptions holds options for the Explorer API query.
 //
-// Project filtering is intentionally not exposed here: the Explorer API's
-// filter query parameters only honor the first value index for a given
-// field+operator pair, so multiple project names cannot be filtered
-// server-side. Callers needing to filter by project should do so
-// client-side using ExplorerWorkspace.ProjectName.
+// Project and tag filtering are intentionally not exposed here: the Explorer
+// API's filter query parameters only honor the first value index for a given
+// field+operator pair, so multiple project names or tags cannot be filtered
+// server-side. Callers needing to filter by project or tag should do so
+// client-side using ExplorerWorkspace.ProjectName and ExplorerWorkspace.Tags.
 type ExplorerListOptions struct {
 	DriftedOnly bool
 	Search      string
@@ -319,6 +323,7 @@ func parseExplorerWorkspacesResponse(body []byte) (*ExplorerWorkspaceList, error
 				Drifted                   bool   `json:"drifted"`
 				ResourcesDrifted          int    `json:"resources-drifted"`
 				ResourcesUndrifted        int    `json:"resources-undrifted"`
+				Tags                      string `json:"tags"`
 			} `json:"attributes"`
 		} `json:"data"`
 		Meta struct {
@@ -346,6 +351,7 @@ func parseExplorerWorkspacesResponse(body []byte) (*ExplorerWorkspaceList, error
 			Drifted:            d.Attributes.Drifted,
 			ResourcesDrifted:   d.Attributes.ResourcesDrifted,
 			ResourcesUndrifted: d.Attributes.ResourcesUndrifted,
+			Tags:               parseTags(d.Attributes.Tags),
 		})
 	}
 
@@ -354,6 +360,22 @@ func parseExplorerWorkspacesResponse(body []byte) (*ExplorerWorkspaceList, error
 		TotalPages: response.Meta.Pagination.TotalPages,
 		NextPage:   response.Meta.Pagination.NextPage,
 	}, nil
+}
+
+// parseTags splits the Explorer API's comma-separated "tags" attribute
+// (e.g. "production,repo:frontend") into individual "key" or "key:value" entries.
+func parseTags(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	tags := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p != "" {
+			tags = append(tags, p)
+		}
+	}
+	return tags
 }
 
 // ReadCurrentAssessment fetches the current assessment result for a workspace.
