@@ -363,7 +363,9 @@ func parseExplorerWorkspacesResponse(body []byte) (*ExplorerWorkspaceList, error
 }
 
 // parseTags splits the Explorer API's comma-separated "tags" attribute
-// (e.g. "production,repo:frontend") into individual "key" or "key:value" entries.
+// (e.g. "production, repo:frontend") into individual "key" or "key:value"
+// entries. The API separates entries with ", " (comma plus space), so each
+// entry is trimmed to avoid leading/trailing whitespace.
 func parseTags(raw string) []string {
 	if raw == "" {
 		return nil
@@ -371,6 +373,7 @@ func parseTags(raw string) []string {
 	parts := strings.Split(raw, ",")
 	tags := make([]string, 0, len(parts))
 	for _, p := range parts {
+		p = strings.TrimSpace(p)
 		if p != "" {
 			tags = append(tags, p)
 		}
