@@ -227,6 +227,59 @@ func TestParseExplorerWorkspacesResponse(t *testing.T) {
 	}
 }
 
+func TestParseExplorerWorkspacesResponse_Tags(t *testing.T) {
+	// The Explorer API separates tags with ", " (comma plus space), not just a
+	// comma. A tag other than the first must not retain a leading space.
+	body := []byte(`{
+		"data": [
+			{
+				"type": "workspace-summaries",
+				"attributes": {
+					"workspace-name": "prod-vpc",
+					"tags": "production, azurerm, repo:frontend"
+				}
+			},
+			{
+				"type": "workspace-summaries",
+				"attributes": {
+					"workspace-name": "no-tags",
+					"tags": ""
+				}
+			}
+		],
+		"meta": {
+			"pagination": {
+				"total-pages": 1,
+				"current-page": 1,
+				"next-page": 0
+			}
+		}
+	}`)
+
+	result, err := parseExplorerWorkspacesResponse(body)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Items) != 2 {
+		t.Fatalf("expected 2 items, got %d", len(result.Items))
+	}
+
+	wantTags := []string{"production", "azurerm", "repo:frontend"}
+	gotTags := result.Items[0].Tags
+	if len(gotTags) != len(wantTags) {
+		t.Fatalf("expected %d tags, got %d: %#v", len(wantTags), len(gotTags), gotTags)
+	}
+	for i, want := range wantTags {
+		if gotTags[i] != want {
+			t.Errorf("tag[%d]: expected %q, got %q", i, want, gotTags[i])
+		}
+	}
+
+	if result.Items[1].Tags != nil {
+		t.Errorf("expected no-tags workspace to have nil Tags, got %#v", result.Items[1].Tags)
+	}
+}
+
 func TestParseExplorerWorkspacesResponse_Empty(t *testing.T) {
 	body := []byte(`{"data": [], "meta": {"pagination": {"total-pages": 0, "current-page": 1, "next-page": 0}}}`)
 
