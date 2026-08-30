@@ -5,7 +5,8 @@ go 1.26.4
 require (
 	github.com/Songmu/skillsmith v0.1.0
 	github.com/google/go-github/v85 v85.0.0
-	github.com/hashicorp/go-tfe v1.110.0
+	github.com/hashicorp/go-tfe v1.111.0
+	github.com/hashicorp/go-tfe/v2 v2.7.0
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
@@ -37,7 +38,7 @@ require (
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	golang.org/x/mod v0.34.0 // indirect
-	golang.org/x/sync v0.21.0 // indirect
+	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
