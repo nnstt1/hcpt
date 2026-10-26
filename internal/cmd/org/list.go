@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	tfe "github.com/hashicorp/go-tfe"
+	tfe "github.com/hashicorp/go-tfe/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 

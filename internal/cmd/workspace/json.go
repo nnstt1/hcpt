@@ -3,7 +3,7 @@ package workspace
 import (
 	"time"
 
-	tfe "github.com/hashicorp/go-tfe"
+	tfe "github.com/hashicorp/go-tfe/v2"
 
 	"github.com/nnstt1/hcpt/internal/client"
 )
