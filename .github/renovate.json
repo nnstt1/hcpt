@@ -7,6 +7,9 @@
   "timezone": "Asia/Tokyo",
   "minimumReleaseAge": "7 days",
   "dependencyDashboard": false,
+  "postUpdateOptions": [
+    "gomodUpdateImportPaths"
+  ],
   "labels": [
     "dependencies"
   ],
