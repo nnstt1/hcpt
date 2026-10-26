@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/google/go-github/v85/github"
+	"github.com/google/go-github/v93/github"
 	"github.com/spf13/viper"
 )
 
@@ -83,7 +83,10 @@ func NewGitHubClientWrapper() (*GitHubClientWrapper, error) {
 		return nil, fmt.Errorf("GitHub token is required: use 'gh auth token', GITHUB_TOKEN env, or 'github-token' in config file")
 	}
 
-	client := github.NewClient(nil).WithAuthToken(token)
+	client, err := github.NewClient(github.WithAuthToken(token))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GitHub client: %w", err)
+	}
 
 	return &GitHubClientWrapper{client: client}, nil
 }
