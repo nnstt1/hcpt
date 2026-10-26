@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -58,9 +57,9 @@ func newCmdVariableImportWith(clientFn variableImportClientFactory) *cobra.Comma
 				return err
 			}
 
-			categoryType := tfe.CategoryTerraform
+			categoryType := client.CategoryTerraform
 			if category == "env" {
-				categoryType = tfe.CategoryEnv
+				categoryType = client.CategoryEnv
 			}
 
 			return runVariableImport(svc, org, workspaceName, filename, categoryType, sensitive, overwrite, dryRun)
@@ -77,7 +76,7 @@ func newCmdVariableImportWith(clientFn variableImportClientFactory) *cobra.Comma
 }
 
 func runVariableImport(svc variableImportService, org, workspaceName, filename string, //nolint:gocyclo // complex by nature, refactor tracked in separate issue
-	category tfe.CategoryType, sensitive, overwrite, dryRun bool) error {
+	category client.CategoryType, sensitive, overwrite, dryRun bool) error {
 	ctx := context.Background()
 
 	// 1. ファイル存在チェック
@@ -103,12 +102,12 @@ func runVariableImport(svc variableImportService, org, workspaceName, filename s
 	}
 
 	// 4. 既存変数取得（重複チェック用）
-	varList, err := svc.ListVariables(ctx, ws.ID, &tfe.VariableListOptions{})
+	varList, err := svc.ListVariables(ctx, ws.ID, &client.VariableListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list variables: %w", err)
 	}
 
-	existingVars := make(map[string]*tfe.Variable)
+	existingVars := make(map[string]*client.Variable)
 	for _, v := range varList.Items {
 		if v.Category == category {
 			existingVars[v.Key] = v
@@ -150,7 +149,7 @@ func runVariableImport(svc variableImportService, org, workspaceName, filename s
 
 		// Update or Create
 		if exists {
-			opts := tfe.VariableUpdateOptions{
+			opts := client.VariableUpdateOptions{
 				Key:       &variable.Key,
 				Value:     &variable.Value,
 				Sensitive: &sensitive,
@@ -163,7 +162,7 @@ func runVariableImport(svc variableImportService, org, workspaceName, filename s
 			fmt.Fprintf(os.Stderr, "  ✓ Updated variable %q\n", variable.Key)
 			updatedCount++
 		} else {
-			opts := tfe.VariableCreateOptions{
+			opts := client.VariableCreateOptions{
 				Key:       &variable.Key,
 				Value:     &variable.Value,
 				Category:  &category,

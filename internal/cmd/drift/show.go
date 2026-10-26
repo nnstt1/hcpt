@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -126,7 +125,7 @@ func runDriftShow(svc driftShowService, org, name string, verbose bool) error {
 	return nil
 }
 
-func toDriftShowJSON(ws *tfe.Workspace, result *client.AssessmentResult, resources []client.DriftedResource, verbose bool) driftShowJSON {
+func toDriftShowJSON(ws *client.Workspace, result *client.AssessmentResult, resources []client.DriftedResource, verbose bool) driftShowJSON {
 	d := driftShowJSON{
 		Workspace: ws.Name,
 	}
@@ -162,7 +161,7 @@ func toDriftShowJSON(ws *tfe.Workspace, result *client.AssessmentResult, resourc
 	return d
 }
 
-func buildDriftShowKeyValues(ws *tfe.Workspace, result *client.AssessmentResult) []output.KeyValue {
+func buildDriftShowKeyValues(ws *client.Workspace, result *client.AssessmentResult) []output.KeyValue {
 	pairs := []output.KeyValue{
 		{Key: "Workspace", Value: ws.Name},
 	}

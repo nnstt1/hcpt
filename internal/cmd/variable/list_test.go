@@ -8,54 +8,55 @@ import (
 	"strings"
 	"testing"
 
-	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/viper"
+
+	"github.com/nnstt1/hcpt/internal/client"
 )
 
 type mockVariableListService struct {
-	workspace *tfe.Workspace
-	variables []*tfe.Variable
+	workspace *client.Workspace
+	variables []*client.Variable
 	readErr   error
 	listErr   error
-	listVarFn func(opts *tfe.VariableListOptions) (*tfe.VariableList, error)
-	createVar *tfe.Variable
+	listVarFn func(opts *client.VariableListOptions) (*client.VariableList, error)
+	createVar *client.Variable
 	createErr error
-	updateVar *tfe.Variable
+	updateVar *client.Variable
 	updateErr error
 	deleteErr error
 }
 
-func (m *mockVariableListService) ListWorkspaces(_ context.Context, _ string, _ *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error) {
+func (m *mockVariableListService) ListWorkspaces(_ context.Context, _ string, _ *client.WorkspaceListOptions) (*client.WorkspaceList, error) {
 	return nil, nil
 }
 
-func (m *mockVariableListService) ReadWorkspace(_ context.Context, _ string, _ string) (*tfe.Workspace, error) {
+func (m *mockVariableListService) ReadWorkspace(_ context.Context, _ string, _ string) (*client.Workspace, error) {
 	if m.readErr != nil {
 		return nil, m.readErr
 	}
 	return m.workspace, nil
 }
 
-func (m *mockVariableListService) ListVariables(_ context.Context, _ string, opts *tfe.VariableListOptions) (*tfe.VariableList, error) {
+func (m *mockVariableListService) ListVariables(_ context.Context, _ string, opts *client.VariableListOptions) (*client.VariableList, error) {
 	if m.listVarFn != nil {
 		return m.listVarFn(opts)
 	}
 	if m.listErr != nil {
 		return nil, m.listErr
 	}
-	return &tfe.VariableList{
+	return &client.VariableList{
 		Items: m.variables,
 	}, nil
 }
 
-func (m *mockVariableListService) CreateVariable(_ context.Context, _ string, _ tfe.VariableCreateOptions) (*tfe.Variable, error) {
+func (m *mockVariableListService) CreateVariable(_ context.Context, _ string, _ client.VariableCreateOptions) (*client.Variable, error) {
 	if m.createErr != nil {
 		return nil, m.createErr
 	}
 	return m.createVar, nil
 }
 
-func (m *mockVariableListService) UpdateVariable(_ context.Context, _ string, _ string, _ tfe.VariableUpdateOptions) (*tfe.Variable, error) {
+func (m *mockVariableListService) UpdateVariable(_ context.Context, _ string, _ string, _ client.VariableUpdateOptions) (*client.Variable, error) {
 	if m.updateErr != nil {
 		return nil, m.updateErr
 	}
@@ -72,19 +73,19 @@ func TestVariableList_Table(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockVariableListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		variables: []*tfe.Variable{
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		variables: []*client.Variable{
 			{
 				Key:       "AWS_REGION",
 				Value:     "us-east-1",
-				Category:  tfe.CategoryTerraform,
+				Category:  client.CategoryTerraform,
 				Sensitive: false,
 				HCL:       false,
 			},
 			{
 				Key:       "SECRET_KEY",
 				Value:     "",
-				Category:  tfe.CategoryEnv,
+				Category:  client.CategoryEnv,
 				Sensitive: true,
 				HCL:       false,
 			},
@@ -112,19 +113,19 @@ func TestVariableList_Table_Output(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockVariableListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		variables: []*tfe.Variable{
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		variables: []*client.Variable{
 			{
 				Key:       "AWS_REGION",
 				Value:     "us-east-1",
-				Category:  tfe.CategoryTerraform,
+				Category:  client.CategoryTerraform,
 				Sensitive: false,
 				HCL:       false,
 			},
 			{
 				Key:       "SECRET_KEY",
 				Value:     "",
-				Category:  tfe.CategoryEnv,
+				Category:  client.CategoryEnv,
 				Sensitive: true,
 				HCL:       false,
 			},
@@ -161,12 +162,12 @@ func TestVariableList_JSON(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockVariableListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		variables: []*tfe.Variable{
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		variables: []*client.Variable{
 			{
 				Key:       "AWS_REGION",
 				Value:     "us-east-1",
-				Category:  tfe.CategoryTerraform,
+				Category:  client.CategoryTerraform,
 				Sensitive: false,
 				HCL:       false,
 			},
@@ -203,26 +204,26 @@ func TestVariableList_Pagination(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockVariableListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		listVarFn: func(opts *tfe.VariableListOptions) (*tfe.VariableList, error) {
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		listVarFn: func(opts *client.VariableListOptions) (*client.VariableList, error) {
 			page := opts.PageNumber
 			if page == 0 {
 				page = 1
 			}
 			switch page {
 			case 1:
-				return &tfe.VariableList{
-					Items: []*tfe.Variable{
-						{Key: "VAR_1", Value: "val1", Category: tfe.CategoryTerraform},
+				return &client.VariableList{
+					Items: []*client.Variable{
+						{Key: "VAR_1", Value: "val1", Category: client.CategoryTerraform},
 					},
-					Pagination: &tfe.Pagination{NextPage: 2, TotalPages: 2},
+					Pagination: &client.Pagination{NextPage: 2, TotalPages: 2},
 				}, nil
 			case 2:
-				return &tfe.VariableList{
-					Items: []*tfe.Variable{
-						{Key: "VAR_2", Value: "val2", Category: tfe.CategoryEnv},
+				return &client.VariableList{
+					Items: []*client.Variable{
+						{Key: "VAR_2", Value: "val2", Category: client.CategoryEnv},
 					},
-					Pagination: &tfe.Pagination{NextPage: 0, TotalPages: 2},
+					Pagination: &client.Pagination{NextPage: 0, TotalPages: 2},
 				}, nil
 			default:
 				return nil, fmt.Errorf("unexpected page %d", page)
@@ -260,8 +261,8 @@ func TestVariableList_Empty(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockVariableListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		variables: []*tfe.Variable{},
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		variables: []*client.Variable{},
 	}
 
 	cmd := newCmdVariableListWith(func() (variableListService, error) {
@@ -284,7 +285,7 @@ func TestVariableList_ListError(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockVariableListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
 		listErr:   fmt.Errorf("variables api error"),
 	}
 

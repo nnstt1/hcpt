@@ -8,40 +8,41 @@ import (
 	"strings"
 	"testing"
 
-	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/viper"
+
+	"github.com/nnstt1/hcpt/internal/client"
 )
 
 type mockProjectShowService struct {
-	projects   []*tfe.Project
-	workspaces []*tfe.Workspace
+	projects   []*client.Project
+	workspaces []*client.Workspace
 	projErr    error
 	wsErr      error
-	listFn     func(opts *tfe.ProjectListOptions) (*tfe.ProjectList, error)
+	listFn     func(opts *client.ProjectListOptions) (*client.ProjectList, error)
 }
 
-func (m *mockProjectShowService) ListProjects(_ context.Context, _ string, opts *tfe.ProjectListOptions) (*tfe.ProjectList, error) {
+func (m *mockProjectShowService) ListProjects(_ context.Context, _ string, opts *client.ProjectListOptions) (*client.ProjectList, error) {
 	if m.listFn != nil {
 		return m.listFn(opts)
 	}
 	if m.projErr != nil {
 		return nil, m.projErr
 	}
-	return &tfe.ProjectList{
+	return &client.ProjectList{
 		Items: m.projects,
 	}, nil
 }
 
-func (m *mockProjectShowService) ListWorkspaces(_ context.Context, _ string, _ *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error) {
+func (m *mockProjectShowService) ListWorkspaces(_ context.Context, _ string, _ *client.WorkspaceListOptions) (*client.WorkspaceList, error) {
 	if m.wsErr != nil {
 		return nil, m.wsErr
 	}
-	return &tfe.WorkspaceList{
+	return &client.WorkspaceList{
 		Items: m.workspaces,
 	}, nil
 }
 
-func (m *mockProjectShowService) ReadWorkspace(_ context.Context, _ string, _ string) (*tfe.Workspace, error) {
+func (m *mockProjectShowService) ReadWorkspace(_ context.Context, _ string, _ string) (*client.Workspace, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -51,7 +52,7 @@ func TestProjectShow_Table(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockProjectShowService{
-		projects: []*tfe.Project{
+		projects: []*client.Project{
 			{
 				Name:                 "my-project",
 				ID:                   "prj-abc123",
@@ -59,7 +60,7 @@ func TestProjectShow_Table(t *testing.T) {
 				DefaultExecutionMode: "remote",
 			},
 		},
-		workspaces: []*tfe.Workspace{
+		workspaces: []*client.Workspace{
 			{Name: "ws-prod", ID: "ws-111"},
 			{Name: "ws-dev", ID: "ws-222"},
 		},
@@ -101,7 +102,7 @@ func TestProjectShow_JSON(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockProjectShowService{
-		projects: []*tfe.Project{
+		projects: []*client.Project{
 			{
 				Name:                 "my-project",
 				ID:                   "prj-abc123",
@@ -109,7 +110,7 @@ func TestProjectShow_JSON(t *testing.T) {
 				DefaultExecutionMode: "remote",
 			},
 		},
-		workspaces: []*tfe.Workspace{
+		workspaces: []*client.Workspace{
 			{Name: "ws-prod", ID: "ws-111"},
 		},
 	}
@@ -144,13 +145,13 @@ func TestProjectShow_NoWorkspaces(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockProjectShowService{
-		projects: []*tfe.Project{
+		projects: []*client.Project{
 			{
 				Name: "empty-project",
 				ID:   "prj-empty",
 			},
 		},
-		workspaces: []*tfe.Workspace{},
+		workspaces: []*client.Workspace{},
 	}
 
 	oldStdout := os.Stdout
@@ -183,7 +184,7 @@ func TestProjectShow_NotFound(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockProjectShowService{
-		projects: []*tfe.Project{},
+		projects: []*client.Project{},
 	}
 
 	err := runProjectShow(mock, "test-org", "nonexistent")
@@ -224,7 +225,7 @@ func TestProjectShow_WorkspaceListError(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockProjectShowService{
-		projects: []*tfe.Project{
+		projects: []*client.Project{
 			{
 				Name: "my-project",
 				ID:   "prj-abc123",

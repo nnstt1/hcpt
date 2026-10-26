@@ -9,35 +9,34 @@ import (
 	"testing"
 	"time"
 
-	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/viper"
 
 	"github.com/nnstt1/hcpt/internal/client"
 )
 
 type mockOrgService struct {
-	orgs   []*tfe.Organization
+	orgs   []*client.Organization
 	err    error
-	listFn func(opts *tfe.OrganizationListOptions) (*tfe.OrganizationList, error)
+	listFn func(opts *client.OrganizationListOptions) (*client.OrganizationList, error)
 }
 
-func (m *mockOrgService) ListOrganizations(_ context.Context, opts *tfe.OrganizationListOptions) (*tfe.OrganizationList, error) {
+func (m *mockOrgService) ListOrganizations(_ context.Context, opts *client.OrganizationListOptions) (*client.OrganizationList, error) {
 	if m.listFn != nil {
 		return m.listFn(opts)
 	}
 	if m.err != nil {
 		return nil, m.err
 	}
-	return &tfe.OrganizationList{
+	return &client.OrganizationList{
 		Items: m.orgs,
 	}, nil
 }
 
-func (m *mockOrgService) ReadOrganization(_ context.Context, _ string) (*tfe.Organization, error) {
+func (m *mockOrgService) ReadOrganization(_ context.Context, _ string) (*client.Organization, error) {
 	return nil, nil
 }
 
-func (m *mockOrgService) ReadEntitlements(_ context.Context, _ string) (*tfe.Entitlements, error) {
+func (m *mockOrgService) ReadEntitlements(_ context.Context, _ string) (*client.Entitlements, error) {
 	return nil, nil
 }
 
@@ -46,7 +45,7 @@ func TestOrgList_Table(t *testing.T) {
 	viper.Set("json", false)
 
 	mock := &mockOrgService{
-		orgs: []*tfe.Organization{
+		orgs: []*client.Organization{
 			{
 				Name:      "my-org",
 				Email:     "admin@example.com",
@@ -79,7 +78,7 @@ func TestOrgList_JSON(t *testing.T) {
 	viper.Set("json", true)
 
 	mock := &mockOrgService{
-		orgs: []*tfe.Organization{
+		orgs: []*client.Organization{
 			{
 				Name:  "my-org",
 				Email: "admin@example.com",
@@ -106,7 +105,7 @@ func TestOrgList_Table_Output(t *testing.T) {
 	viper.Set("json", false)
 
 	mock := &mockOrgService{
-		orgs: []*tfe.Organization{
+		orgs: []*client.Organization{
 			{
 				Name:      "my-org",
 				Email:     "admin@example.com",
@@ -152,7 +151,7 @@ func TestOrgList_JSON_Output(t *testing.T) {
 	viper.Set("json", true)
 
 	mock := &mockOrgService{
-		orgs: []*tfe.Organization{
+		orgs: []*client.Organization{
 			{
 				Name:      "my-org",
 				Email:     "admin@example.com",
@@ -191,25 +190,25 @@ func TestOrgList_Pagination(t *testing.T) {
 	viper.Set("json", false)
 
 	mock := &mockOrgService{
-		listFn: func(opts *tfe.OrganizationListOptions) (*tfe.OrganizationList, error) {
+		listFn: func(opts *client.OrganizationListOptions) (*client.OrganizationList, error) {
 			page := opts.PageNumber
 			if page == 0 {
 				page = 1
 			}
 			switch page {
 			case 1:
-				return &tfe.OrganizationList{
-					Items: []*tfe.Organization{
+				return &client.OrganizationList{
+					Items: []*client.Organization{
 						{Name: "org-1", Email: "a@example.com", CreatedAt: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)},
 					},
-					Pagination: &tfe.Pagination{NextPage: 2, TotalPages: 2},
+					Pagination: &client.Pagination{NextPage: 2, TotalPages: 2},
 				}, nil
 			case 2:
-				return &tfe.OrganizationList{
-					Items: []*tfe.Organization{
+				return &client.OrganizationList{
+					Items: []*client.Organization{
 						{Name: "org-2", Email: "b@example.com", CreatedAt: time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC)},
 					},
-					Pagination: &tfe.Pagination{NextPage: 0, TotalPages: 2},
+					Pagination: &client.Pagination{NextPage: 0, TotalPages: 2},
 				}, nil
 			default:
 				return nil, fmt.Errorf("unexpected page %d", page)
@@ -246,7 +245,7 @@ func TestOrgList_Empty(t *testing.T) {
 	viper.Set("json", false)
 
 	mock := &mockOrgService{
-		orgs: []*tfe.Organization{},
+		orgs: []*client.Organization{},
 	}
 
 	cmd := newCmdOrgListWith(func() (client.OrganizationService, error) {

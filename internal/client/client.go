@@ -11,28 +11,28 @@ import (
 	"strings"
 	"time"
 
-	tfe "github.com/hashicorp/go-tfe"
+	tfe "github.com/hashicorp/go-tfe/v2"
 	"github.com/spf13/viper"
 )
 
 // OrganizationService provides operations on HCP Terraform organizations.
 type OrganizationService interface {
-	ListOrganizations(ctx context.Context, opts *tfe.OrganizationListOptions) (*tfe.OrganizationList, error)
-	ReadOrganization(ctx context.Context, org string) (*tfe.Organization, error)
-	ReadEntitlements(ctx context.Context, org string) (*tfe.Entitlements, error)
+	ListOrganizations(ctx context.Context, opts *OrganizationListOptions) (*OrganizationList, error)
+	ReadOrganization(ctx context.Context, org string) (*Organization, error)
+	ReadEntitlements(ctx context.Context, org string) (*Entitlements, error)
 }
 
 // WorkspaceService provides operations on HCP Terraform workspaces.
 type WorkspaceService interface {
-	ListWorkspaces(ctx context.Context, org string, opts *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error)
-	ReadWorkspace(ctx context.Context, org string, name string) (*tfe.Workspace, error)
+	ListWorkspaces(ctx context.Context, org string, opts *WorkspaceListOptions) (*WorkspaceList, error)
+	ReadWorkspace(ctx context.Context, org string, name string) (*Workspace, error)
 }
 
 // RunService provides operations on HCP Terraform runs.
 type RunService interface {
-	ListRuns(ctx context.Context, workspaceID string, opts *tfe.RunListOptions) (*tfe.RunList, error)
-	ReadRun(ctx context.Context, runID string) (*tfe.Run, error)
-	ReadRunWithApply(ctx context.Context, runID string) (*tfe.Run, error)
+	ListRuns(ctx context.Context, workspaceID string, opts *RunListOptions) (*RunList, error)
+	ReadRun(ctx context.Context, runID string) (*Run, error)
+	ReadRunWithApply(ctx context.Context, runID string) (*Run, error)
 }
 
 // PlanService provides operations on HCP Terraform plans.
@@ -47,15 +47,15 @@ type ApplyService interface {
 
 // VariableService provides operations on HCP Terraform workspace variables.
 type VariableService interface {
-	ListVariables(ctx context.Context, workspaceID string, opts *tfe.VariableListOptions) (*tfe.VariableList, error)
-	CreateVariable(ctx context.Context, workspaceID string, opts tfe.VariableCreateOptions) (*tfe.Variable, error)
-	UpdateVariable(ctx context.Context, workspaceID string, variableID string, opts tfe.VariableUpdateOptions) (*tfe.Variable, error)
+	ListVariables(ctx context.Context, workspaceID string, opts *VariableListOptions) (*VariableList, error)
+	CreateVariable(ctx context.Context, workspaceID string, opts VariableCreateOptions) (*Variable, error)
+	UpdateVariable(ctx context.Context, workspaceID string, variableID string, opts VariableUpdateOptions) (*Variable, error)
 	DeleteVariable(ctx context.Context, workspaceID string, variableID string) error
 }
 
 // ProjectService provides operations on HCP Terraform projects.
 type ProjectService interface {
-	ListProjects(ctx context.Context, org string, opts *tfe.ProjectListOptions) (*tfe.ProjectList, error)
+	ListProjects(ctx context.Context, org string, opts *ProjectListOptions) (*ProjectList, error)
 }
 
 // AssessmentResult holds the current assessment (drift detection) result for a workspace.
@@ -186,72 +186,6 @@ func hostnameFromAddress(address string) string {
 		return address
 	}
 	return u.Hostname()
-}
-
-func (c *ClientWrapper) ListOrganizations(ctx context.Context, opts *tfe.OrganizationListOptions) (*tfe.OrganizationList, error) {
-	return c.client.Organizations.List(ctx, opts)
-}
-
-func (c *ClientWrapper) ReadOrganization(ctx context.Context, org string) (*tfe.Organization, error) {
-	return c.client.Organizations.Read(ctx, org)
-}
-
-func (c *ClientWrapper) ReadEntitlements(ctx context.Context, org string) (*tfe.Entitlements, error) {
-	return c.client.Organizations.ReadEntitlements(ctx, org)
-}
-
-func (c *ClientWrapper) ListWorkspaces(ctx context.Context, org string, opts *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error) {
-	return c.client.Workspaces.List(ctx, org, opts)
-}
-
-func (c *ClientWrapper) ReadWorkspace(ctx context.Context, org string, name string) (*tfe.Workspace, error) {
-	return c.client.Workspaces.Read(ctx, org, name)
-}
-
-func (c *ClientWrapper) ListRuns(ctx context.Context, workspaceID string, opts *tfe.RunListOptions) (*tfe.RunList, error) {
-	return c.client.Runs.List(ctx, workspaceID, opts)
-}
-
-func (c *ClientWrapper) ReadRun(ctx context.Context, runID string) (*tfe.Run, error) {
-	return c.client.Runs.ReadWithOptions(ctx, runID, &tfe.RunReadOptions{
-		Include: []tfe.RunIncludeOpt{tfe.RunPlan},
-	})
-}
-
-func (c *ClientWrapper) ReadRunWithApply(ctx context.Context, runID string) (*tfe.Run, error) {
-	return c.client.Runs.ReadWithOptions(ctx, runID, &tfe.RunReadOptions{
-		Include: []tfe.RunIncludeOpt{tfe.RunPlan, tfe.RunApply},
-	})
-}
-
-// ReadPlanJSONOutput reads the JSON output of a plan.
-func (c *ClientWrapper) ReadPlanJSONOutput(ctx context.Context, planID string) ([]byte, error) {
-	return c.client.Plans.ReadJSONOutput(ctx, planID)
-}
-
-// ReadApplyLogs reads the log output for an apply.
-func (c *ClientWrapper) ReadApplyLogs(ctx context.Context, applyID string) (io.Reader, error) {
-	return c.client.Applies.Logs(ctx, applyID)
-}
-
-func (c *ClientWrapper) ListVariables(ctx context.Context, workspaceID string, opts *tfe.VariableListOptions) (*tfe.VariableList, error) {
-	return c.client.Variables.List(ctx, workspaceID, opts)
-}
-
-func (c *ClientWrapper) CreateVariable(ctx context.Context, workspaceID string, opts tfe.VariableCreateOptions) (*tfe.Variable, error) {
-	return c.client.Variables.Create(ctx, workspaceID, opts)
-}
-
-func (c *ClientWrapper) UpdateVariable(ctx context.Context, workspaceID string, variableID string, opts tfe.VariableUpdateOptions) (*tfe.Variable, error) {
-	return c.client.Variables.Update(ctx, workspaceID, variableID, opts)
-}
-
-func (c *ClientWrapper) DeleteVariable(ctx context.Context, workspaceID string, variableID string) error {
-	return c.client.Variables.Delete(ctx, workspaceID, variableID)
-}
-
-func (c *ClientWrapper) ListProjects(ctx context.Context, org string, opts *tfe.ProjectListOptions) (*tfe.ProjectList, error) {
-	return c.client.Projects.List(ctx, org, opts)
 }
 
 // ListExplorerWorkspaces queries the Explorer API for workspace data.

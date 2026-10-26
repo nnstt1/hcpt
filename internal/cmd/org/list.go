@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 
-	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -48,11 +47,11 @@ func newCmdOrgListWith(clientFn orgListClientFactory) *cobra.Command {
 
 func runOrgList(svc client.OrganizationService) error {
 	ctx := context.Background()
-	opts := &tfe.OrganizationListOptions{
-		ListOptions: tfe.ListOptions{PageSize: 100},
+	opts := &client.OrganizationListOptions{
+		ListOptions: client.ListOptions{PageSize: 100},
 	}
 
-	var allItems []*tfe.Organization
+	var allItems []*client.Organization
 	for {
 		orgList, err := svc.ListOrganizations(ctx, opts)
 		if err != nil {

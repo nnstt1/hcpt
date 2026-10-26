@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 
-	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -80,8 +79,8 @@ func runRunLogs(svc runLogsService, runID, org, workspaceName string, errorOnly 
 			return fmt.Errorf("failed to read workspace: %w", err)
 		}
 
-		runList, err := svc.ListRuns(ctx, ws.ID, &tfe.RunListOptions{
-			ListOptions: tfe.ListOptions{PageSize: 1},
+		runList, err := svc.ListRuns(ctx, ws.ID, &client.RunListOptions{
+			ListOptions: client.ListOptions{PageSize: 1},
 		})
 		if err != nil {
 			return fmt.Errorf("failed to list runs: %w", err)

@@ -3,8 +3,6 @@ package workspace
 import (
 	"time"
 
-	tfe "github.com/hashicorp/go-tfe"
-
 	"github.com/nnstt1/hcpt/internal/client"
 )
 
@@ -22,7 +20,7 @@ type workspaceJSON struct {
 	UpdatedAt        time.Time `json:"updated_at"`
 }
 
-func toWorkspaceJSON(ws *tfe.Workspace) workspaceJSON {
+func toWorkspaceJSON(ws *client.Workspace) workspaceJSON {
 	return workspaceJSON{
 		Name:             ws.Name,
 		ID:               ws.ID,

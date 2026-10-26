@@ -8,14 +8,13 @@ import (
 	"strings"
 	"testing"
 
-	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/viper"
 
 	"github.com/nnstt1/hcpt/internal/client"
 )
 
 type mockDriftShowService struct {
-	workspace       *tfe.Workspace
+	workspace       *client.Workspace
 	readErr         error
 	assessments     map[string]*client.AssessmentResult
 	assessErr       error
@@ -23,11 +22,11 @@ type mockDriftShowService struct {
 	driftDetailsErr error
 }
 
-func (m *mockDriftShowService) ListWorkspaces(_ context.Context, _ string, _ *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error) {
+func (m *mockDriftShowService) ListWorkspaces(_ context.Context, _ string, _ *client.WorkspaceListOptions) (*client.WorkspaceList, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (m *mockDriftShowService) ReadWorkspace(_ context.Context, _ string, _ string) (*tfe.Workspace, error) {
+func (m *mockDriftShowService) ReadWorkspace(_ context.Context, _ string, _ string) (*client.Workspace, error) {
 	if m.readErr != nil {
 		return nil, m.readErr
 	}
@@ -60,7 +59,7 @@ func TestDriftShow_Table(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockDriftShowService{
-		workspace: &tfe.Workspace{
+		workspace: &client.Workspace{
 			Name: "my-workspace",
 			ID:   "ws-abc123",
 		},
@@ -121,7 +120,7 @@ func TestDriftShow_JSON(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockDriftShowService{
-		workspace: &tfe.Workspace{
+		workspace: &client.Workspace{
 			Name: "my-workspace",
 			ID:   "ws-abc123",
 		},
@@ -180,7 +179,7 @@ func TestDriftShow_NoDrift_NoResourceTable(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockDriftShowService{
-		workspace: &tfe.Workspace{
+		workspace: &client.Workspace{
 			Name: "my-workspace",
 			ID:   "ws-abc123",
 		},
@@ -227,7 +226,7 @@ func TestDriftShow_NotReady(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockDriftShowService{
-		workspace: &tfe.Workspace{
+		workspace: &client.Workspace{
 			Name: "my-workspace",
 			ID:   "ws-abc123",
 		},
@@ -261,7 +260,7 @@ func TestDriftShow_DriftDetailsError_NonFatal(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockDriftShowService{
-		workspace: &tfe.Workspace{
+		workspace: &client.Workspace{
 			Name: "my-workspace",
 			ID:   "ws-abc123",
 		},
@@ -397,7 +396,7 @@ func TestDriftShow_AssessmentError(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockDriftShowService{
-		workspace: &tfe.Workspace{
+		workspace: &client.Workspace{
 			Name: "my-workspace",
 			ID:   "ws-abc123",
 		},
@@ -446,7 +445,7 @@ func TestDriftShow_NoArgs(t *testing.T) {
 
 func mockWithDiffData() *mockDriftShowService {
 	return &mockDriftShowService{
-		workspace: &tfe.Workspace{
+		workspace: &client.Workspace{
 			Name: "my-workspace",
 			ID:   "ws-abc123",
 		},

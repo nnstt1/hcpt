@@ -6,7 +6,6 @@ import (
 	"os"
 	"strconv"
 
-	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -68,14 +67,14 @@ func runProjectShow(svc projectShowService, org, name string) error {
 	ctx := context.Background()
 
 	// Find project by name
-	projList, err := svc.ListProjects(ctx, org, &tfe.ProjectListOptions{
+	projList, err := svc.ListProjects(ctx, org, &client.ProjectListOptions{
 		Name: name,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to list projects: %w", err)
 	}
 
-	var found *tfe.Project
+	var found *client.Project
 	for _, p := range projList.Items {
 		if p.Name == name {
 			found = p
@@ -132,13 +131,13 @@ func runProjectShow(svc projectShowService, org, name string) error {
 	return nil
 }
 
-func listProjectWorkspaces(ctx context.Context, svc client.WorkspaceService, org, projectID string) ([]*tfe.Workspace, error) {
-	opts := &tfe.WorkspaceListOptions{
-		ListOptions: tfe.ListOptions{PageSize: 100},
+func listProjectWorkspaces(ctx context.Context, svc client.WorkspaceService, org, projectID string) ([]*client.Workspace, error) {
+	opts := &client.WorkspaceListOptions{
+		ListOptions: client.ListOptions{PageSize: 100},
 		ProjectID:   projectID,
 	}
 
-	var all []*tfe.Workspace
+	var all []*client.Workspace
 	for {
 		wsList, err := svc.ListWorkspaces(ctx, org, opts)
 		if err != nil {

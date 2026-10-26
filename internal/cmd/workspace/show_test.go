@@ -9,29 +9,28 @@ import (
 	"testing"
 	"time"
 
-	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/viper"
 
 	"github.com/nnstt1/hcpt/internal/client"
 )
 
 type mockWSService struct {
-	workspaces []*tfe.Workspace
-	workspace  *tfe.Workspace
+	workspaces []*client.Workspace
+	workspace  *client.Workspace
 	listErr    error
 	readErr    error
 }
 
-func (m *mockWSService) ListWorkspaces(_ context.Context, _ string, _ *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error) {
+func (m *mockWSService) ListWorkspaces(_ context.Context, _ string, _ *client.WorkspaceListOptions) (*client.WorkspaceList, error) {
 	if m.listErr != nil {
 		return nil, m.listErr
 	}
-	return &tfe.WorkspaceList{
+	return &client.WorkspaceList{
 		Items: m.workspaces,
 	}, nil
 }
 
-func (m *mockWSService) ReadWorkspace(_ context.Context, _ string, _ string) (*tfe.Workspace, error) {
+func (m *mockWSService) ReadWorkspace(_ context.Context, _ string, _ string) (*client.Workspace, error) {
 	if m.readErr != nil {
 		return nil, m.readErr
 	}
@@ -44,7 +43,7 @@ func TestWorkspaceShow_Table(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockWSService{
-		workspace: &tfe.Workspace{
+		workspace: &client.Workspace{
 			Name:             "my-workspace",
 			ID:               "ws-abc123",
 			Description:      "A test workspace",
@@ -80,7 +79,7 @@ func TestWorkspaceShow_Table_Output(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockWSService{
-		workspace: &tfe.Workspace{
+		workspace: &client.Workspace{
 			Name:             "my-workspace",
 			ID:               "ws-abc123",
 			Description:      "A test workspace",
@@ -125,7 +124,7 @@ func TestWorkspaceShow_JSON(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockWSService{
-		workspace: &tfe.Workspace{
+		workspace: &client.Workspace{
 			Name:             "my-workspace",
 			ID:               "ws-abc123",
 			Description:      "A test workspace",

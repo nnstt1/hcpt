@@ -9,47 +9,48 @@ import (
 	"strings"
 	"testing"
 
-	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/viper"
+
+	"github.com/nnstt1/hcpt/internal/client"
 )
 
 type mockRunLogsService struct {
-	workspace    *tfe.Workspace
+	workspace    *client.Workspace
 	workspaceErr error
-	runList      *tfe.RunList
+	runList      *client.RunList
 	runListErr   error
-	run          *tfe.Run
+	run          *client.Run
 	runErr       error
 	logs         string
 	logsErr      error
 }
 
-func (m *mockRunLogsService) ListRuns(_ context.Context, _ string, _ *tfe.RunListOptions) (*tfe.RunList, error) {
+func (m *mockRunLogsService) ListRuns(_ context.Context, _ string, _ *client.RunListOptions) (*client.RunList, error) {
 	if m.runListErr != nil {
 		return nil, m.runListErr
 	}
 	return m.runList, nil
 }
 
-func (m *mockRunLogsService) ReadRun(_ context.Context, _ string) (*tfe.Run, error) {
+func (m *mockRunLogsService) ReadRun(_ context.Context, _ string) (*client.Run, error) {
 	if m.runErr != nil {
 		return nil, m.runErr
 	}
 	return m.run, nil
 }
 
-func (m *mockRunLogsService) ReadRunWithApply(_ context.Context, _ string) (*tfe.Run, error) {
+func (m *mockRunLogsService) ReadRunWithApply(_ context.Context, _ string) (*client.Run, error) {
 	if m.runErr != nil {
 		return nil, m.runErr
 	}
 	return m.run, nil
 }
 
-func (m *mockRunLogsService) ListWorkspaces(_ context.Context, _ string, _ *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error) {
+func (m *mockRunLogsService) ListWorkspaces(_ context.Context, _ string, _ *client.WorkspaceListOptions) (*client.WorkspaceList, error) {
 	return nil, nil
 }
 
-func (m *mockRunLogsService) ReadWorkspace(_ context.Context, _, _ string) (*tfe.Workspace, error) {
+func (m *mockRunLogsService) ReadWorkspace(_ context.Context, _, _ string) (*client.Workspace, error) {
 	if m.workspaceErr != nil {
 		return nil, m.workspaceErr
 	}
@@ -69,10 +70,10 @@ func TestRunLogs_Basic(t *testing.T) {
 	logContent := "2024-01-01T00:00:00.000Z [INFO]  provider.terraform-provider-aws: Initializing\n2024-01-01T00:00:01.000Z [INFO]  Apply complete! Resources: 2 added."
 
 	mock := &mockRunLogsService{
-		run: &tfe.Run{
+		run: &client.Run{
 			ID:     "run-abc123",
-			Status: tfe.RunApplied,
-			Apply: &tfe.Apply{
+			Status: client.RunApplied,
+			Apply: &client.Apply{
 				ID: "apply-xyz789",
 			},
 		},
@@ -111,10 +112,10 @@ func TestRunLogs_ErrorOnly(t *testing.T) {
 {"@level":"info","@message":"Apply cancelled"}`
 
 	mock := &mockRunLogsService{
-		run: &tfe.Run{
+		run: &client.Run{
 			ID:     "run-abc123",
-			Status: tfe.RunErrored,
-			Apply: &tfe.Apply{
+			Status: client.RunErrored,
+			Apply: &client.Apply{
 				ID: "apply-xyz789",
 			},
 		},
@@ -156,25 +157,25 @@ func TestRunLogs_WithWorkspace(t *testing.T) {
 	logLine := "Apply complete! Resources: 1 added."
 
 	mock := &mockRunLogsService{
-		workspace: &tfe.Workspace{
+		workspace: &client.Workspace{
 			ID:   "ws-123",
 			Name: "my-ws",
 		},
-		runList: &tfe.RunList{
-			Items: []*tfe.Run{
+		runList: &client.RunList{
+			Items: []*client.Run{
 				{
 					ID:     "run-latest",
-					Status: tfe.RunApplied,
-					Apply: &tfe.Apply{
+					Status: client.RunApplied,
+					Apply: &client.Apply{
 						ID: "apply-latest",
 					},
 				},
 			},
 		},
-		run: &tfe.Run{
+		run: &client.Run{
 			ID:     "run-latest",
-			Status: tfe.RunApplied,
-			Apply: &tfe.Apply{
+			Status: client.RunApplied,
+			Apply: &client.Apply{
 				ID: "apply-latest",
 			},
 		},
@@ -207,9 +208,9 @@ func TestRunLogs_NoApply(t *testing.T) {
 	viper.Reset()
 
 	mock := &mockRunLogsService{
-		run: &tfe.Run{
+		run: &client.Run{
 			ID:     "run-planning",
-			Status: tfe.RunPlanning,
+			Status: client.RunPlanning,
 			Apply:  nil, // No apply yet
 		},
 	}
@@ -295,8 +296,8 @@ func TestRunLogs_WithWorkspace_NoRuns(t *testing.T) {
 	viper.Reset()
 
 	mock := &mockRunLogsService{
-		workspace: &tfe.Workspace{ID: "ws-123", Name: "empty-ws"},
-		runList:   &tfe.RunList{Items: []*tfe.Run{}},
+		workspace: &client.Workspace{ID: "ws-123", Name: "empty-ws"},
+		runList:   &client.RunList{Items: []*client.Run{}},
 	}
 
 	err := runRunLogs(mock, "", "test-org", "empty-ws", false)

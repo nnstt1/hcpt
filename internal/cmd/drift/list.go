@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -70,7 +69,7 @@ func newCmdDriftListWith(clientFn driftListClientFactory) *cobra.Command {
 func verifyProjectsExist(ctx context.Context, svc client.ProjectService, org string, names []string) error {
 	var missing []string
 	for _, name := range names {
-		projList, err := svc.ListProjects(ctx, org, &tfe.ProjectListOptions{Name: name})
+		projList, err := svc.ListProjects(ctx, org, &client.ProjectListOptions{Name: name})
 		if err != nil {
 			return fmt.Errorf("failed to list projects: %w", err)
 		}

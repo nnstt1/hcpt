@@ -173,4 +173,7 @@ The parser checks `resource_drift` first. If empty, it falls back to `resource_c
 - Code is placed under `internal/` to prevent imports from external packages
 - Each subcommand is isolated in its own directory; command registration is done in `init()`
 - `internal/client/` centralizes go-tfe client initialization and token retrieval
+- go-tfe v2 is a Kiota-generated, path-based client (`client.API.Organizations().ByOrganization_name(org)...`) whose models are interfaces with pointer getters
+  - Service interfaces use hcpt's own domain types in `internal/client/types.go`; `internal/client/tfe.go` converts v2 models into them, so commands and mocks never import go-tfe
+  - Endpoints the v2 typed API lacks or returns untyped (entitlement-set, plan json-output redirect, apply log URL) are called via raw HTTP or `Client.GetStream`
 - `internal/output/` provides shared logic for switching between table and JSON output

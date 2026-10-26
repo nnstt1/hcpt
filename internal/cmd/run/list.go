@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -80,8 +79,8 @@ func runRunList(svc runListService, org, workspaceName, status string) error {
 		return fmt.Errorf("failed to read workspace %q: %w", workspaceName, err)
 	}
 
-	opts := &tfe.RunListOptions{
-		ListOptions: tfe.ListOptions{
+	opts := &client.RunListOptions{
+		ListOptions: client.ListOptions{
 			PageSize: 100,
 		},
 		// plan_only is excluded by default, so explicitly specify all operation types
@@ -89,7 +88,7 @@ func runRunList(svc runListService, org, workspaceName, status string) error {
 		Status:    status,
 	}
 
-	var allItems []*tfe.Run
+	var allItems []*client.Run
 	for {
 		runList, err := svc.ListRuns(ctx, ws.ID, opts)
 		if err != nil {

@@ -6,7 +6,6 @@ import (
 	"os"
 	"strconv"
 
-	tfe "github.com/hashicorp/go-tfe"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -74,11 +73,11 @@ func runVariableList(svc variableListService, org, workspaceName string) error {
 		return fmt.Errorf("failed to read workspace %q: %w", workspaceName, err)
 	}
 
-	opts := &tfe.VariableListOptions{
-		ListOptions: tfe.ListOptions{PageSize: 100},
+	opts := &client.VariableListOptions{
+		ListOptions: client.ListOptions{PageSize: 100},
 	}
 
-	var allItems []*tfe.Variable
+	var allItems []*client.Variable
 	for {
 		varList, err := svc.ListVariables(ctx, ws.ID, opts)
 		if err != nil {
