@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	tfe "github.com/hashicorp/go-tfe/v2"
 	"github.com/spf13/viper"
 
 	"github.com/nnstt1/hcpt/internal/client"
@@ -16,7 +15,7 @@ import (
 
 type mockDriftListService struct {
 	items      []client.ExplorerWorkspace
-	projects   []*tfe.Project
+	projects   []*client.Project
 	listErr    error
 	projectErr error
 	lastPage   int // track requested page
@@ -34,17 +33,17 @@ func (m *mockDriftListService) ListExplorerWorkspaces(_ context.Context, _ strin
 	}, nil
 }
 
-func (m *mockDriftListService) ListProjects(_ context.Context, _ string, opts *tfe.ProjectListOptions) (*tfe.ProjectList, error) {
+func (m *mockDriftListService) ListProjects(_ context.Context, _ string, opts *client.ProjectListOptions) (*client.ProjectList, error) {
 	if m.projectErr != nil {
 		return nil, m.projectErr
 	}
-	var items []*tfe.Project
+	var items []*client.Project
 	for _, p := range m.projects {
 		if opts.Name == "" || p.Name == opts.Name {
 			items = append(items, p)
 		}
 	}
-	return &tfe.ProjectList{Items: items}, nil
+	return &client.ProjectList{Items: items}, nil
 }
 
 func TestDriftList_DriftedOnly(t *testing.T) {
@@ -263,7 +262,7 @@ func TestDriftList_ProjectFilter(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockDriftListService{
-		projects: []*tfe.Project{{Name: "my-project", ID: "prj-123"}},
+		projects: []*client.Project{{Name: "my-project", ID: "prj-123"}},
 		items: []client.ExplorerWorkspace{
 			{WorkspaceName: "prod-vpc", ProjectName: "my-project", Drifted: true, ResourcesDrifted: 3},
 			{WorkspaceName: "other-vpc", ProjectName: "other-project", Drifted: true, ResourcesDrifted: 1},
@@ -300,7 +299,7 @@ func TestDriftList_ProjectNotFound(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockDriftListService{
-		projects: []*tfe.Project{{Name: "other-project", ID: "prj-999"}},
+		projects: []*client.Project{{Name: "other-project", ID: "prj-999"}},
 	}
 
 	err := runDriftList(mock, "test-org", false, []string{"missing-project"}, nil, nil, nil)
@@ -319,7 +318,7 @@ func TestDriftList_MultipleProjectsFilter(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockDriftListService{
-		projects: []*tfe.Project{
+		projects: []*client.Project{
 			{Name: "project-a", ID: "prj-a"},
 			{Name: "project-b", ID: "prj-b"},
 		},
@@ -361,7 +360,7 @@ func TestDriftList_ExcludeProjectFilter(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockDriftListService{
-		projects: []*tfe.Project{{Name: "project-a", ID: "prj-a"}},
+		projects: []*client.Project{{Name: "project-a", ID: "prj-a"}},
 		items: []client.ExplorerWorkspace{
 			{WorkspaceName: "ws-a", ProjectName: "project-a", Drifted: true, ResourcesDrifted: 1},
 			{WorkspaceName: "ws-b", ProjectName: "project-b", Drifted: true, ResourcesDrifted: 2},
@@ -398,7 +397,7 @@ func TestDriftList_ProjectIncludeExcludeConflict(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockDriftListService{
-		projects: []*tfe.Project{{Name: "project-a", ID: "prj-a"}},
+		projects: []*client.Project{{Name: "project-a", ID: "prj-a"}},
 	}
 
 	err := runDriftList(mock, "test-org", false, []string{"project-a"}, []string{"project-a"}, nil, nil)
@@ -416,7 +415,7 @@ func TestDriftList_ExcludeProjectNotFound(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockDriftListService{
-		projects: []*tfe.Project{{Name: "other-project", ID: "prj-999"}},
+		projects: []*client.Project{{Name: "other-project", ID: "prj-999"}},
 	}
 
 	err := runDriftList(mock, "test-org", false, nil, []string{"missing-project"}, nil, nil)
@@ -614,8 +613,8 @@ func (m *mockDriftListServicePaginated) ListExplorerWorkspaces(_ context.Context
 	}, nil
 }
 
-func (m *mockDriftListServicePaginated) ListProjects(_ context.Context, _ string, _ *tfe.ProjectListOptions) (*tfe.ProjectList, error) {
-	return &tfe.ProjectList{}, nil
+func (m *mockDriftListServicePaginated) ListProjects(_ context.Context, _ string, _ *client.ProjectListOptions) (*client.ProjectList, error) {
+	return &client.ProjectList{}, nil
 }
 
 func TestDriftList_Pagination(t *testing.T) {

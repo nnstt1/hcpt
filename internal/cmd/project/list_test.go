@@ -8,26 +8,25 @@ import (
 	"strings"
 	"testing"
 
-	tfe "github.com/hashicorp/go-tfe/v2"
 	"github.com/spf13/viper"
 
 	"github.com/nnstt1/hcpt/internal/client"
 )
 
 type mockProjectService struct {
-	projects []*tfe.Project
+	projects []*client.Project
 	err      error
-	listFn   func(opts *tfe.ProjectListOptions) (*tfe.ProjectList, error)
+	listFn   func(opts *client.ProjectListOptions) (*client.ProjectList, error)
 }
 
-func (m *mockProjectService) ListProjects(_ context.Context, _ string, opts *tfe.ProjectListOptions) (*tfe.ProjectList, error) {
+func (m *mockProjectService) ListProjects(_ context.Context, _ string, opts *client.ProjectListOptions) (*client.ProjectList, error) {
 	if m.listFn != nil {
 		return m.listFn(opts)
 	}
 	if m.err != nil {
 		return nil, m.err
 	}
-	return &tfe.ProjectList{
+	return &client.ProjectList{
 		Items: m.projects,
 	}, nil
 }
@@ -38,7 +37,7 @@ func TestProjectList_Table(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockProjectService{
-		projects: []*tfe.Project{
+		projects: []*client.Project{
 			{
 				Name:        "Default Project",
 				ID:          "prj-abc123",
@@ -72,7 +71,7 @@ func TestProjectList_Table_Output(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockProjectService{
-		projects: []*tfe.Project{
+		projects: []*client.Project{
 			{
 				Name:        "Default Project",
 				ID:          "prj-abc123",
@@ -111,7 +110,7 @@ func TestProjectList_JSON(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockProjectService{
-		projects: []*tfe.Project{
+		projects: []*client.Project{
 			{
 				Name:        "Default Project",
 				ID:          "prj-abc123",
@@ -150,25 +149,25 @@ func TestProjectList_Pagination(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockProjectService{
-		listFn: func(opts *tfe.ProjectListOptions) (*tfe.ProjectList, error) {
+		listFn: func(opts *client.ProjectListOptions) (*client.ProjectList, error) {
 			page := opts.PageNumber
 			if page == 0 {
 				page = 1
 			}
 			switch page {
 			case 1:
-				return &tfe.ProjectList{
-					Items: []*tfe.Project{
+				return &client.ProjectList{
+					Items: []*client.Project{
 						{Name: "proj-1", ID: "prj-1", Description: "First"},
 					},
-					Pagination: &tfe.Pagination{NextPage: 2, TotalPages: 2},
+					Pagination: &client.Pagination{NextPage: 2, TotalPages: 2},
 				}, nil
 			case 2:
-				return &tfe.ProjectList{
-					Items: []*tfe.Project{
+				return &client.ProjectList{
+					Items: []*client.Project{
 						{Name: "proj-2", ID: "prj-2", Description: "Second"},
 					},
-					Pagination: &tfe.Pagination{NextPage: 0, TotalPages: 2},
+					Pagination: &client.Pagination{NextPage: 0, TotalPages: 2},
 				}, nil
 			default:
 				return nil, fmt.Errorf("unexpected page %d", page)
@@ -206,7 +205,7 @@ func TestProjectList_Empty(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockProjectService{
-		projects: []*tfe.Project{},
+		projects: []*client.Project{},
 	}
 
 	cmd := newCmdProjectListWith(func() (client.ProjectService, error) {

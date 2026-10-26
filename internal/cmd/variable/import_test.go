@@ -8,8 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	tfe "github.com/hashicorp/go-tfe/v2"
 	"github.com/spf13/viper"
+
+	"github.com/nnstt1/hcpt/internal/client"
 )
 
 func TestVariableImport_Create(t *testing.T) {
@@ -17,9 +18,9 @@ func TestVariableImport_Create(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockVariableListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		variables: []*tfe.Variable{},
-		createVar: &tfe.Variable{},
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		variables: []*client.Variable{},
+		createVar: &client.Variable{},
 	}
 
 	oldStderr := os.Stderr
@@ -27,7 +28,7 @@ func TestVariableImport_Create(t *testing.T) {
 	os.Stderr = w
 
 	filename := filepath.Join("testdata", "test.tfvars")
-	err := runVariableImport(mock, "test-org", "my-ws", filename, tfe.CategoryTerraform, false, false, false)
+	err := runVariableImport(mock, "test-org", "my-ws", filename, client.CategoryTerraform, false, false, false)
 
 	_ = w.Close()
 	os.Stderr = oldStderr
@@ -53,16 +54,16 @@ func TestVariableImport_Update(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockVariableListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		variables: []*tfe.Variable{
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		variables: []*client.Variable{
 			{
 				ID:       "var-123",
 				Key:      "region",
 				Value:    "ap-northeast-1",
-				Category: tfe.CategoryTerraform,
+				Category: client.CategoryTerraform,
 			},
 		},
-		updateVar: &tfe.Variable{},
+		updateVar: &client.Variable{},
 	}
 
 	oldStderr := os.Stderr
@@ -71,7 +72,7 @@ func TestVariableImport_Update(t *testing.T) {
 
 	filename := filepath.Join("testdata", "test.tfvars.json")
 	// overwrite=true で自動上書き
-	err := runVariableImport(mock, "test-org", "my-ws", filename, tfe.CategoryTerraform, false, true, false)
+	err := runVariableImport(mock, "test-org", "my-ws", filename, client.CategoryTerraform, false, true, false)
 
 	_ = w.Close()
 	os.Stderr = oldStderr
@@ -100,8 +101,8 @@ func TestVariableImport_DryRun(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockVariableListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		variables: []*tfe.Variable{},
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		variables: []*client.Variable{},
 	}
 
 	oldStderr := os.Stderr
@@ -109,7 +110,7 @@ func TestVariableImport_DryRun(t *testing.T) {
 	os.Stderr = w
 
 	filename := filepath.Join("testdata", "test.tfvars")
-	err := runVariableImport(mock, "test-org", "my-ws", filename, tfe.CategoryTerraform, false, false, true)
+	err := runVariableImport(mock, "test-org", "my-ws", filename, client.CategoryTerraform, false, false, true)
 
 	_ = w.Close()
 	os.Stderr = oldStderr
@@ -135,10 +136,10 @@ func TestVariableImport_FileNotFound(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockVariableListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
 	}
 
-	err := runVariableImport(mock, "test-org", "my-ws", "nonexistent.tfvars", tfe.CategoryTerraform, false, false, false)
+	err := runVariableImport(mock, "test-org", "my-ws", "nonexistent.tfvars", client.CategoryTerraform, false, false, false)
 
 	if err == nil {
 		t.Fatal("expected error for non-existent file, got nil")
@@ -157,7 +158,7 @@ func TestVariableImport_WorkspaceNotFound(t *testing.T) {
 	}
 
 	filename := filepath.Join("testdata", "test.tfvars")
-	err := runVariableImport(mock, "test-org", "my-ws", filename, tfe.CategoryTerraform, false, false, false)
+	err := runVariableImport(mock, "test-org", "my-ws", filename, client.CategoryTerraform, false, false, false)
 
 	if err == nil {
 		t.Fatal("expected error for workspace not found, got nil")
@@ -172,12 +173,12 @@ func TestVariableImport_ListVariablesError(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockVariableListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
 		listErr:   fmt.Errorf("API error"),
 	}
 
 	filename := filepath.Join("testdata", "test.tfvars")
-	err := runVariableImport(mock, "test-org", "my-ws", filename, tfe.CategoryTerraform, false, false, false)
+	err := runVariableImport(mock, "test-org", "my-ws", filename, client.CategoryTerraform, false, false, false)
 
 	if err == nil {
 		t.Fatal("expected error for list variables failure, got nil")
@@ -192,8 +193,8 @@ func TestVariableImport_CreateError(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockVariableListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		variables: []*tfe.Variable{},
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		variables: []*client.Variable{},
 		createErr: fmt.Errorf("API error"),
 	}
 
@@ -202,7 +203,7 @@ func TestVariableImport_CreateError(t *testing.T) {
 	os.Stderr = w
 
 	filename := filepath.Join("testdata", "test.tfvars")
-	err := runVariableImport(mock, "test-org", "my-ws", filename, tfe.CategoryTerraform, false, false, false)
+	err := runVariableImport(mock, "test-org", "my-ws", filename, client.CategoryTerraform, false, false, false)
 
 	_ = w.Close()
 	os.Stderr = oldStderr
@@ -231,15 +232,15 @@ func TestVariableImport_EmptyFile(t *testing.T) {
 	defer func() { _ = os.Remove(tmpFile) }()
 
 	mock := &mockVariableListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		variables: []*tfe.Variable{},
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		variables: []*client.Variable{},
 	}
 
 	oldStderr := os.Stderr
 	r, w, _ := os.Pipe()
 	os.Stderr = w
 
-	err = runVariableImport(mock, "test-org", "my-ws", tmpFile, tfe.CategoryTerraform, false, false, false)
+	err = runVariableImport(mock, "test-org", "my-ws", tmpFile, client.CategoryTerraform, false, false, false)
 
 	_ = w.Close()
 	os.Stderr = oldStderr

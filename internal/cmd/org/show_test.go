@@ -10,26 +10,25 @@ import (
 	"testing"
 	"time"
 
-	tfe "github.com/hashicorp/go-tfe/v2"
 	"github.com/spf13/viper"
 
 	"github.com/nnstt1/hcpt/internal/client"
 )
 
 type mockOrgShowService struct {
-	org             *tfe.Organization
+	org             *client.Organization
 	orgErr          error
 	subscription    *client.SubscriptionInfo
 	subscriptionErr error
-	entitlements    *tfe.Entitlements
+	entitlements    *client.Entitlements
 	entitlementsErr error
 }
 
-func (m *mockOrgShowService) ListOrganizations(_ context.Context, _ *tfe.OrganizationListOptions) (*tfe.OrganizationList, error) {
+func (m *mockOrgShowService) ListOrganizations(_ context.Context, _ *client.OrganizationListOptions) (*client.OrganizationList, error) {
 	return nil, nil
 }
 
-func (m *mockOrgShowService) ReadOrganization(_ context.Context, _ string) (*tfe.Organization, error) {
+func (m *mockOrgShowService) ReadOrganization(_ context.Context, _ string) (*client.Organization, error) {
 	if m.orgErr != nil {
 		return nil, m.orgErr
 	}
@@ -43,7 +42,7 @@ func (m *mockOrgShowService) ReadSubscription(_ context.Context, _ string) (*cli
 	return m.subscription, nil
 }
 
-func (m *mockOrgShowService) ReadEntitlements(_ context.Context, _ string) (*tfe.Entitlements, error) {
+func (m *mockOrgShowService) ReadEntitlements(_ context.Context, _ string) (*client.Entitlements, error) {
 	if m.entitlementsErr != nil {
 		return nil, m.entitlementsErr
 	}
@@ -56,7 +55,7 @@ func TestOrgShow_Table(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockOrgShowService{
-		org: &tfe.Organization{
+		org: &client.Organization{
 			Name:      "test-org",
 			Email:     "admin@example.com",
 			CreatedAt: time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
@@ -65,7 +64,7 @@ func TestOrgShow_Table(t *testing.T) {
 			PlanName: "Free",
 			IsActive: true,
 		},
-		entitlements: &tfe.Entitlements{
+		entitlements: &client.Entitlements{
 			Teams:    true,
 			Sentinel: true,
 		},
@@ -91,7 +90,7 @@ func TestOrgShow_Table_Output(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockOrgShowService{
-		org: &tfe.Organization{
+		org: &client.Organization{
 			Name:      "test-org",
 			Email:     "admin@example.com",
 			CreatedAt: time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
@@ -100,7 +99,7 @@ func TestOrgShow_Table_Output(t *testing.T) {
 			PlanName: "Standard",
 			IsActive: true,
 		},
-		entitlements: &tfe.Entitlements{
+		entitlements: &client.Entitlements{
 			Teams:           true,
 			Sentinel:        true,
 			SSO:             false,
@@ -138,7 +137,7 @@ func TestOrgShow_JSON(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockOrgShowService{
-		org: &tfe.Organization{
+		org: &client.Organization{
 			Name:      "test-org",
 			Email:     "admin@example.com",
 			CreatedAt: time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
@@ -147,7 +146,7 @@ func TestOrgShow_JSON(t *testing.T) {
 			PlanName: "Free",
 			IsActive: true,
 		},
-		entitlements: &tfe.Entitlements{
+		entitlements: &client.Entitlements{
 			Sentinel: true,
 			Teams:    true,
 		},
@@ -255,13 +254,13 @@ func TestOrgShow_ReadSubscriptionError_NonFatal(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockOrgShowService{
-		org: &tfe.Organization{
+		org: &client.Organization{
 			Name:      "test-org",
 			Email:     "admin@example.com",
 			CreatedAt: time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
 		},
 		subscriptionErr: fmt.Errorf("subscription error"),
-		entitlements: &tfe.Entitlements{
+		entitlements: &client.Entitlements{
 			Teams: true,
 		},
 	}
@@ -300,7 +299,7 @@ func TestOrgShow_ReadEntitlementsError_NonFatal(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockOrgShowService{
-		org: &tfe.Organization{
+		org: &client.Organization{
 			Name:      "test-org",
 			Email:     "admin@example.com",
 			CreatedAt: time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
@@ -346,7 +345,7 @@ func TestOrgShow_BothSubAndEntitlementsError_NonFatal(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockOrgShowService{
-		org: &tfe.Organization{
+		org: &client.Organization{
 			Name:      "test-org",
 			Email:     "admin@example.com",
 			CreatedAt: time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
@@ -386,7 +385,7 @@ func TestOrgShow_SubscriptionError_JSON(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockOrgShowService{
-		org: &tfe.Organization{
+		org: &client.Organization{
 			Name:      "test-org",
 			Email:     "admin@example.com",
 			CreatedAt: time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
@@ -429,7 +428,7 @@ func TestOrgShow_ReadSubscriptionError_StderrWarning(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockOrgShowService{
-		org: &tfe.Organization{
+		org: &client.Organization{
 			Name:      "test-org",
 			Email:     "admin@example.com",
 			CreatedAt: time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
@@ -460,7 +459,7 @@ func TestOrgShow_ReadEntitlementsError_StderrWarning(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockOrgShowService{
-		org: &tfe.Organization{
+		org: &client.Organization{
 			Name:      "test-org",
 			Email:     "admin@example.com",
 			CreatedAt: time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),

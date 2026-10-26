@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	tfe "github.com/hashicorp/go-tfe/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -50,9 +49,9 @@ func newCmdVariableSetWith(clientFn variableSetClientFactory) *cobra.Command {
 				return errWorkspaceRequired
 			}
 
-			cat := tfe.CategoryTerraform
+			cat := client.CategoryTerraform
 			if category == "env" {
-				cat = tfe.CategoryEnv
+				cat = client.CategoryEnv
 			}
 
 			svc, err := clientFn()
@@ -72,7 +71,7 @@ func newCmdVariableSetWith(clientFn variableSetClientFactory) *cobra.Command {
 	return cmd
 }
 
-func runVariableSet(svc variableSetService, org, workspaceName, key, value string, category tfe.CategoryType, sensitive, hcl bool, description string) error {
+func runVariableSet(svc variableSetService, org, workspaceName, key, value string, category client.CategoryType, sensitive, hcl bool, description string) error {
 	ctx := context.Background()
 
 	ws, err := svc.ReadWorkspace(ctx, org, workspaceName)
@@ -81,7 +80,7 @@ func runVariableSet(svc variableSetService, org, workspaceName, key, value strin
 	}
 
 	// Search for existing variable with same key and category
-	varList, err := svc.ListVariables(ctx, ws.ID, &tfe.VariableListOptions{})
+	varList, err := svc.ListVariables(ctx, ws.ID, &client.VariableListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list variables: %w", err)
 	}
@@ -89,7 +88,7 @@ func runVariableSet(svc variableSetService, org, workspaceName, key, value strin
 	for _, v := range varList.Items {
 		if v.Key == key && v.Category == category {
 			// Update existing variable
-			opts := tfe.VariableUpdateOptions{
+			opts := client.VariableUpdateOptions{
 				Key:         &key,
 				Value:       &value,
 				Sensitive:   &sensitive,
@@ -106,7 +105,7 @@ func runVariableSet(svc variableSetService, org, workspaceName, key, value strin
 	}
 
 	// Create new variable
-	opts := tfe.VariableCreateOptions{
+	opts := client.VariableCreateOptions{
 		Key:         &key,
 		Value:       &value,
 		Category:    &category,

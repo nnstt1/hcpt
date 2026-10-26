@@ -9,51 +9,52 @@ import (
 	"testing"
 	"time"
 
-	tfe "github.com/hashicorp/go-tfe/v2"
 	"github.com/spf13/viper"
+
+	"github.com/nnstt1/hcpt/internal/client"
 )
 
 type mockRunListService struct {
-	workspace  *tfe.Workspace
-	runs       []*tfe.Run
+	workspace  *client.Workspace
+	runs       []*client.Run
 	readErr    error
 	listErr    error
-	run        *tfe.Run
+	run        *client.Run
 	readRunErr error
-	listRunFn  func(opts *tfe.RunListOptions) (*tfe.RunList, error)
+	listRunFn  func(opts *client.RunListOptions) (*client.RunList, error)
 }
 
-func (m *mockRunListService) ReadWorkspace(_ context.Context, _ string, _ string) (*tfe.Workspace, error) {
+func (m *mockRunListService) ReadWorkspace(_ context.Context, _ string, _ string) (*client.Workspace, error) {
 	if m.readErr != nil {
 		return nil, m.readErr
 	}
 	return m.workspace, nil
 }
 
-func (m *mockRunListService) ListWorkspaces(_ context.Context, _ string, _ *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error) {
+func (m *mockRunListService) ListWorkspaces(_ context.Context, _ string, _ *client.WorkspaceListOptions) (*client.WorkspaceList, error) {
 	return nil, nil
 }
 
-func (m *mockRunListService) ListRuns(_ context.Context, _ string, opts *tfe.RunListOptions) (*tfe.RunList, error) {
+func (m *mockRunListService) ListRuns(_ context.Context, _ string, opts *client.RunListOptions) (*client.RunList, error) {
 	if m.listRunFn != nil {
 		return m.listRunFn(opts)
 	}
 	if m.listErr != nil {
 		return nil, m.listErr
 	}
-	return &tfe.RunList{
+	return &client.RunList{
 		Items: m.runs,
 	}, nil
 }
 
-func (m *mockRunListService) ReadRun(_ context.Context, _ string) (*tfe.Run, error) {
+func (m *mockRunListService) ReadRun(_ context.Context, _ string) (*client.Run, error) {
 	if m.readRunErr != nil {
 		return nil, m.readRunErr
 	}
 	return m.run, nil
 }
 
-func (m *mockRunListService) ReadRunWithApply(_ context.Context, _ string) (*tfe.Run, error) {
+func (m *mockRunListService) ReadRunWithApply(_ context.Context, _ string) (*client.Run, error) {
 	if m.readRunErr != nil {
 		return nil, m.readRunErr
 	}
@@ -66,25 +67,25 @@ func TestRunList_Table(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockRunListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		runs: []*tfe.Run{
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		runs: []*client.Run{
 			{
 				ID:         "run-123",
-				Status:     tfe.RunApplied,
+				Status:     client.RunApplied,
 				Message:    "Apply complete",
 				HasChanges: true,
 				CreatedAt:  time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
 			},
 			{
 				ID:         "run-456",
-				Status:     tfe.RunPlanned,
+				Status:     client.RunPlanned,
 				Message:    "Queued by user",
 				HasChanges: false,
 				CreatedAt:  time.Date(2024, 3, 14, 10, 0, 0, 0, time.UTC),
 			},
 			{
 				ID:         "run-789",
-				Status:     tfe.RunPlannedAndFinished,
+				Status:     client.RunPlannedAndFinished,
 				Message:    "Plan only run",
 				PlanOnly:   true,
 				HasChanges: false,
@@ -114,11 +115,11 @@ func TestRunList_Table_Output(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockRunListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		runs: []*tfe.Run{
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		runs: []*client.Run{
 			{
 				ID:         "run-123",
-				Status:     tfe.RunApplied,
+				Status:     client.RunApplied,
 				Message:    "Apply complete",
 				HasChanges: true,
 				CreatedAt:  time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
@@ -156,11 +157,11 @@ func TestRunList_JSON(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockRunListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		runs: []*tfe.Run{
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		runs: []*client.Run{
 			{
 				ID:         "run-123",
-				Status:     tfe.RunApplied,
+				Status:     client.RunApplied,
 				Message:    "Apply complete",
 				HasChanges: true,
 				CreatedAt:  time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
@@ -198,26 +199,26 @@ func TestRunList_Pagination(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockRunListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		listRunFn: func(opts *tfe.RunListOptions) (*tfe.RunList, error) {
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		listRunFn: func(opts *client.RunListOptions) (*client.RunList, error) {
 			page := opts.PageNumber
 			if page == 0 {
 				page = 1
 			}
 			switch page {
 			case 1:
-				return &tfe.RunList{
-					Items: []*tfe.Run{
-						{ID: "run-1", Status: tfe.RunApplied, Message: "msg1", CreatedAt: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)},
+				return &client.RunList{
+					Items: []*client.Run{
+						{ID: "run-1", Status: client.RunApplied, Message: "msg1", CreatedAt: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)},
 					},
-					Pagination: &tfe.Pagination{NextPage: 2, TotalPages: 2},
+					Pagination: &client.Pagination{NextPage: 2, TotalPages: 2},
 				}, nil
 			case 2:
-				return &tfe.RunList{
-					Items: []*tfe.Run{
-						{ID: "run-2", Status: tfe.RunPlanned, Message: "msg2", CreatedAt: time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC)},
+				return &client.RunList{
+					Items: []*client.Run{
+						{ID: "run-2", Status: client.RunPlanned, Message: "msg2", CreatedAt: time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC)},
 					},
-					Pagination: &tfe.Pagination{NextPage: 0, TotalPages: 2},
+					Pagination: &client.Pagination{NextPage: 0, TotalPages: 2},
 				}, nil
 			default:
 				return nil, fmt.Errorf("unexpected page %d", page)
@@ -255,8 +256,8 @@ func TestRunList_Empty(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockRunListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		runs:      []*tfe.Run{},
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		runs:      []*client.Run{},
 	}
 
 	cmd := newCmdRunListWith(func() (runListService, error) {
@@ -279,7 +280,7 @@ func TestRunList_ListRunsError(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockRunListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
 		listErr:   fmt.Errorf("runs api error"),
 	}
 
@@ -408,12 +409,12 @@ func TestRunList_StatusFilter(t *testing.T) {
 
 	var capturedStatus string
 	mock := &mockRunListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		listRunFn: func(opts *tfe.RunListOptions) (*tfe.RunList, error) {
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		listRunFn: func(opts *client.RunListOptions) (*client.RunList, error) {
 			capturedStatus = opts.Status
-			return &tfe.RunList{
-				Items: []*tfe.Run{
-					{ID: "run-123", Status: tfe.RunApplied, Message: "done", CreatedAt: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)},
+			return &client.RunList{
+				Items: []*client.Run{
+					{ID: "run-123", Status: client.RunApplied, Message: "done", CreatedAt: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)},
 				},
 			}, nil
 		},
@@ -444,13 +445,13 @@ func TestRunList_StatusFilterMultiple(t *testing.T) {
 
 	var capturedStatus string
 	mock := &mockRunListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		listRunFn: func(opts *tfe.RunListOptions) (*tfe.RunList, error) {
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		listRunFn: func(opts *client.RunListOptions) (*client.RunList, error) {
 			capturedStatus = opts.Status
-			return &tfe.RunList{
-				Items: []*tfe.Run{
-					{ID: "run-123", Status: tfe.RunApplied, Message: "done", CreatedAt: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)},
-					{ID: "run-456", Status: tfe.RunErrored, Message: "failed", CreatedAt: time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC)},
+			return &client.RunList{
+				Items: []*client.Run{
+					{ID: "run-123", Status: client.RunApplied, Message: "done", CreatedAt: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)},
+					{ID: "run-456", Status: client.RunErrored, Message: "failed", CreatedAt: time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC)},
 				},
 			}, nil
 		},

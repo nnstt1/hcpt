@@ -6,12 +6,13 @@ import (
 	"os"
 	"time"
 
-	tfe "github.com/hashicorp/go-tfe/v2"
 	"github.com/spf13/viper"
+
+	"github.com/nnstt1/hcpt/internal/client"
 )
 
 // watchRun polls the run status until it reaches a terminal state.
-func watchRun(ctx context.Context, svc runShowService, runID string, initialRun *tfe.Run, pollInterval time.Duration) error {
+func watchRun(ctx context.Context, svc runShowService, runID string, initialRun *client.Run, pollInterval time.Duration) error {
 	// In watch mode, skip fetching resource changes (inefficient to fetch on every poll)
 	var resourceChanges []resourceChange
 
@@ -75,14 +76,14 @@ func watchRun(ctx context.Context, svc runShowService, runID string, initialRun 
 }
 
 // isTerminalStatus returns true if the status is a terminal state.
-func isTerminalStatus(status tfe.RunStatus) bool {
+func isTerminalStatus(status client.RunStatus) bool {
 	switch status {
-	case tfe.RunApplied,
-		tfe.RunErrored,
-		tfe.RunCanceled,
-		tfe.RunDiscarded,
-		tfe.RunPlannedAndFinished,
-		tfe.RunPlannedAndSaved:
+	case client.RunApplied,
+		client.RunErrored,
+		client.RunCanceled,
+		client.RunDiscarded,
+		client.RunPlannedAndFinished,
+		client.RunPlannedAndSaved:
 		return true
 	default:
 		return false
@@ -90,6 +91,6 @@ func isTerminalStatus(status tfe.RunStatus) bool {
 }
 
 // formatStatusUpdate formats a status update line with timestamp.
-func formatStatusUpdate(timestamp time.Time, status tfe.RunStatus) string {
+func formatStatusUpdate(timestamp time.Time, status client.RunStatus) string {
 	return fmt.Sprintf("%s  Status: %s", timestamp.Format("2006-01-02 15:04:05"), status)
 }

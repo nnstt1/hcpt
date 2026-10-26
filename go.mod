@@ -7,6 +7,7 @@ require (
 	github.com/google/go-github/v93 v93.0.0
 	github.com/hashicorp/go-tfe/v2 v2.14.0
 	github.com/hashicorp/hcl/v2 v2.25.0
+	github.com/microsoft/kiota-abstractions-go v1.9.4
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/zclconf/go-cty v1.19.0
@@ -27,7 +28,6 @@ require (
 	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/microsoft/kiota-abstractions-go v1.9.4 // indirect
 	github.com/microsoft/kiota-http-go v1.5.6 // indirect
 	github.com/microsoft/kiota-serialization-form-go v1.1.3 // indirect
 	github.com/microsoft/kiota-serialization-json-go v1.1.2 // indirect

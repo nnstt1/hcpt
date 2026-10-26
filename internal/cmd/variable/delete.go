@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	tfe "github.com/hashicorp/go-tfe/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -47,9 +46,9 @@ func newCmdVariableDeleteWith(clientFn variableDeleteClientFactory) *cobra.Comma
 				return errWorkspaceRequired
 			}
 
-			cat := tfe.CategoryTerraform
+			cat := client.CategoryTerraform
 			if category == "env" {
-				cat = tfe.CategoryEnv
+				cat = client.CategoryEnv
 			}
 
 			svc, err := clientFn()
@@ -66,7 +65,7 @@ func newCmdVariableDeleteWith(clientFn variableDeleteClientFactory) *cobra.Comma
 	return cmd
 }
 
-func runVariableDelete(svc variableDeleteService, org, workspaceName, key string, category tfe.CategoryType) error {
+func runVariableDelete(svc variableDeleteService, org, workspaceName, key string, category client.CategoryType) error {
 	ctx := context.Background()
 
 	ws, err := svc.ReadWorkspace(ctx, org, workspaceName)
@@ -74,7 +73,7 @@ func runVariableDelete(svc variableDeleteService, org, workspaceName, key string
 		return fmt.Errorf("failed to read workspace %q: %w", workspaceName, err)
 	}
 
-	varList, err := svc.ListVariables(ctx, ws.ID, &tfe.VariableListOptions{})
+	varList, err := svc.ListVariables(ctx, ws.ID, &client.VariableListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list variables: %w", err)
 	}

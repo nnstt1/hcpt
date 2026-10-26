@@ -11,45 +11,46 @@ import (
 	"testing"
 	"time"
 
-	tfe "github.com/hashicorp/go-tfe/v2"
 	"github.com/spf13/viper"
+
+	"github.com/nnstt1/hcpt/internal/client"
 )
 
 type mockRunShowService struct {
-	run          *tfe.Run
+	run          *client.Run
 	runErr       error
-	workspace    *tfe.Workspace
+	workspace    *client.Workspace
 	workspaceErr error
-	runList      *tfe.RunList
+	runList      *client.RunList
 	runListErr   error
 }
 
-func (m *mockRunShowService) ListRuns(_ context.Context, _ string, _ *tfe.RunListOptions) (*tfe.RunList, error) {
+func (m *mockRunShowService) ListRuns(_ context.Context, _ string, _ *client.RunListOptions) (*client.RunList, error) {
 	if m.runListErr != nil {
 		return nil, m.runListErr
 	}
 	return m.runList, nil
 }
 
-func (m *mockRunShowService) ReadRun(_ context.Context, _ string) (*tfe.Run, error) {
+func (m *mockRunShowService) ReadRun(_ context.Context, _ string) (*client.Run, error) {
 	if m.runErr != nil {
 		return nil, m.runErr
 	}
 	return m.run, nil
 }
 
-func (m *mockRunShowService) ListWorkspaces(_ context.Context, _ string, _ *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error) {
+func (m *mockRunShowService) ListWorkspaces(_ context.Context, _ string, _ *client.WorkspaceListOptions) (*client.WorkspaceList, error) {
 	return nil, nil
 }
 
-func (m *mockRunShowService) ReadWorkspace(_ context.Context, _, _ string) (*tfe.Workspace, error) {
+func (m *mockRunShowService) ReadWorkspace(_ context.Context, _, _ string) (*client.Workspace, error) {
 	if m.workspaceErr != nil {
 		return nil, m.workspaceErr
 	}
 	return m.workspace, nil
 }
 
-func (m *mockRunShowService) ReadRunWithApply(_ context.Context, _ string) (*tfe.Run, error) {
+func (m *mockRunShowService) ReadRunWithApply(_ context.Context, _ string) (*client.Run, error) {
 	if m.runErr != nil {
 		return nil, m.runErr
 	}
@@ -78,13 +79,12 @@ func TestRunShow_Table(t *testing.T) {
 	viper.Set("json", false)
 
 	mock := &mockRunShowService{
-		run: &tfe.Run{
+		run: &client.Run{
 			ID:               "run-abc123",
-			Status:           tfe.RunApplied,
+			Status:           client.RunApplied,
 			Message:          "Apply complete",
 			TerraformVersion: "1.5.0",
 			HasChanges:       true,
-			IsDestroy:        false,
 			CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
 		},
 	}
@@ -109,15 +109,14 @@ func TestRunShow_Table_Output(t *testing.T) {
 	viper.Set("json", false)
 
 	mock := &mockRunShowService{
-		run: &tfe.Run{
+		run: &client.Run{
 			ID:               "run-abc123",
-			Status:           tfe.RunApplied,
+			Status:           client.RunApplied,
 			Message:          "Apply complete",
 			TerraformVersion: "1.5.0",
 			HasChanges:       true,
-			IsDestroy:        false,
 			CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
-			Plan: &tfe.Plan{
+			Plan: &client.Plan{
 				ResourceAdditions:    2,
 				ResourceChanges:      1,
 				ResourceDestructions: 3,
@@ -157,14 +156,14 @@ func TestRunShow_Table_WithTimestamps(t *testing.T) {
 	viper.Set("json", false)
 
 	mock := &mockRunShowService{
-		run: &tfe.Run{
+		run: &client.Run{
 			ID:               "run-abc123",
-			Status:           tfe.RunApplied,
+			Status:           client.RunApplied,
 			Message:          "Apply complete",
 			TerraformVersion: "1.5.0",
 			HasChanges:       true,
 			CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
-			StatusTimestamps: &tfe.RunStatusTimestamps{
+			StatusTimestamps: &client.RunStatusTimestamps{
 				PlannedAt: time.Date(2024, 3, 15, 12, 3, 0, 0, time.UTC),
 				AppliedAt: time.Date(2024, 3, 15, 12, 5, 0, 0, time.UTC),
 			},
@@ -201,13 +200,12 @@ func TestRunShow_Table_NonTerminalStatus(t *testing.T) {
 	viper.Set("json", false)
 
 	mock := &mockRunShowService{
-		run: &tfe.Run{
+		run: &client.Run{
 			ID:               "run-planning",
-			Status:           tfe.RunPlanning,
+			Status:           client.RunPlanning,
 			Message:          "Triggered via UI",
 			TerraformVersion: "1.5.0",
 			HasChanges:       false,
-			IsDestroy:        false,
 			CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
 		},
 	}
@@ -249,20 +247,19 @@ func TestRunShow_JSON(t *testing.T) {
 	viper.Set("json", true)
 
 	mock := &mockRunShowService{
-		run: &tfe.Run{
+		run: &client.Run{
 			ID:               "run-abc123",
-			Status:           tfe.RunApplied,
+			Status:           client.RunApplied,
 			Message:          "Apply complete",
 			TerraformVersion: "1.5.0",
 			HasChanges:       true,
-			IsDestroy:        false,
 			CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
-			Plan: &tfe.Plan{
+			Plan: &client.Plan{
 				ResourceAdditions:    1,
 				ResourceChanges:      2,
 				ResourceDestructions: 0,
 			},
-			StatusTimestamps: &tfe.RunStatusTimestamps{
+			StatusTimestamps: &client.RunStatusTimestamps{
 				PlannedAt: time.Date(2024, 3, 15, 12, 2, 0, 0, time.UTC),
 				AppliedAt: time.Date(2024, 3, 15, 12, 5, 0, 0, time.UTC),
 			},
@@ -374,15 +371,14 @@ func TestRunShow_WithWorkspace_Table(t *testing.T) {
 	viper.Set("json", false)
 	viper.Set("org", "test-org")
 
-	latestRun := &tfe.Run{
+	latestRun := &client.Run{
 		ID:               "run-latest",
-		Status:           tfe.RunApplied,
+		Status:           client.RunApplied,
 		Message:          "Latest run",
 		TerraformVersion: "1.5.0",
 		HasChanges:       true,
-		IsDestroy:        false,
 		CreatedAt:        time.Date(2024, 3, 16, 10, 0, 0, 0, time.UTC),
-		Plan: &tfe.Plan{
+		Plan: &client.Plan{
 			ResourceAdditions:    1,
 			ResourceChanges:      0,
 			ResourceDestructions: 2,
@@ -390,13 +386,13 @@ func TestRunShow_WithWorkspace_Table(t *testing.T) {
 	}
 
 	mock := &mockRunShowService{
-		workspace: &tfe.Workspace{
+		workspace: &client.Workspace{
 			ID:   "ws-123",
 			Name: "production",
 		},
 		run: latestRun,
-		runList: &tfe.RunList{
-			Items: []*tfe.Run{latestRun},
+		runList: &client.RunList{
+			Items: []*client.Run{latestRun},
 		},
 	}
 
@@ -429,24 +425,23 @@ func TestRunShow_WithWorkspace_JSON(t *testing.T) {
 	viper.Set("json", true)
 	viper.Set("org", "test-org")
 
-	latestRun := &tfe.Run{
+	latestRun := &client.Run{
 		ID:               "run-latest",
-		Status:           tfe.RunApplied,
+		Status:           client.RunApplied,
 		Message:          "Latest run",
 		TerraformVersion: "1.5.0",
 		HasChanges:       true,
-		IsDestroy:        false,
 		CreatedAt:        time.Date(2024, 3, 16, 10, 0, 0, 0, time.UTC),
 	}
 
 	mock := &mockRunShowService{
-		workspace: &tfe.Workspace{
+		workspace: &client.Workspace{
 			ID:   "ws-123",
 			Name: "production",
 		},
 		run: latestRun,
-		runList: &tfe.RunList{
-			Items: []*tfe.Run{latestRun},
+		runList: &client.RunList{
+			Items: []*client.Run{latestRun},
 		},
 	}
 
@@ -479,12 +474,12 @@ func TestRunShow_WithWorkspace_NoRuns(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockRunShowService{
-		workspace: &tfe.Workspace{
+		workspace: &client.Workspace{
 			ID:   "ws-123",
 			Name: "empty-workspace",
 		},
-		runList: &tfe.RunList{
-			Items: []*tfe.Run{},
+		runList: &client.RunList{
+			Items: []*client.Run{},
 		},
 	}
 
@@ -564,7 +559,7 @@ func TestRunShow_WithWorkspace_ListRunsError(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockRunShowService{
-		workspace: &tfe.Workspace{
+		workspace: &client.Workspace{
 			ID:   "ws-123",
 			Name: "production",
 		},
@@ -593,23 +588,23 @@ func TestRunShow_WithWorkspace_ListRunsError(t *testing.T) {
 
 // mockRunShowServiceWithWatch supports simulating status changes over time
 type mockRunShowServiceWithWatch struct {
-	workspace    *tfe.Workspace
+	workspace    *client.Workspace
 	workspaceErr error
-	runList      *tfe.RunList
+	runList      *client.RunList
 	runListErr   error
-	runs         []*tfe.Run // runs to return in sequence
-	readCount    int        // number of times ReadRun has been called
-	readErr      error      // error to return on ReadRun
+	runs         []*client.Run // runs to return in sequence
+	readCount    int           // number of times ReadRun has been called
+	readErr      error         // error to return on ReadRun
 }
 
-func (m *mockRunShowServiceWithWatch) ListRuns(_ context.Context, _ string, _ *tfe.RunListOptions) (*tfe.RunList, error) {
+func (m *mockRunShowServiceWithWatch) ListRuns(_ context.Context, _ string, _ *client.RunListOptions) (*client.RunList, error) {
 	if m.runListErr != nil {
 		return nil, m.runListErr
 	}
 	return m.runList, nil
 }
 
-func (m *mockRunShowServiceWithWatch) ReadRun(_ context.Context, _ string) (*tfe.Run, error) {
+func (m *mockRunShowServiceWithWatch) ReadRun(_ context.Context, _ string) (*client.Run, error) {
 	if m.readErr != nil {
 		return nil, m.readErr
 	}
@@ -622,18 +617,18 @@ func (m *mockRunShowServiceWithWatch) ReadRun(_ context.Context, _ string) (*tfe
 	return r, nil
 }
 
-func (m *mockRunShowServiceWithWatch) ListWorkspaces(_ context.Context, _ string, _ *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error) {
+func (m *mockRunShowServiceWithWatch) ListWorkspaces(_ context.Context, _ string, _ *client.WorkspaceListOptions) (*client.WorkspaceList, error) {
 	return nil, nil
 }
 
-func (m *mockRunShowServiceWithWatch) ReadWorkspace(_ context.Context, _, _ string) (*tfe.Workspace, error) {
+func (m *mockRunShowServiceWithWatch) ReadWorkspace(_ context.Context, _, _ string) (*client.Workspace, error) {
 	if m.workspaceErr != nil {
 		return nil, m.workspaceErr
 	}
 	return m.workspace, nil
 }
 
-func (m *mockRunShowServiceWithWatch) ReadRunWithApply(_ context.Context, _ string) (*tfe.Run, error) {
+func (m *mockRunShowServiceWithWatch) ReadRunWithApply(_ context.Context, _ string) (*client.Run, error) {
 	if m.readErr != nil {
 		return nil, m.readErr
 	}
@@ -651,18 +646,18 @@ func (m *mockRunShowServiceWithWatch) ReadPlanJSONOutput(_ context.Context, _ st
 
 func TestIsTerminalStatus(t *testing.T) {
 	tests := []struct {
-		status   tfe.RunStatus
+		status   client.RunStatus
 		expected bool
 	}{
-		{tfe.RunApplied, true},
-		{tfe.RunErrored, true},
-		{tfe.RunCanceled, true},
-		{tfe.RunDiscarded, true},
-		{tfe.RunPlannedAndFinished, true},
-		{tfe.RunPlannedAndSaved, true},
-		{tfe.RunPending, false},
-		{tfe.RunPlanning, false},
-		{tfe.RunApplying, false},
+		{client.RunApplied, true},
+		{client.RunErrored, true},
+		{client.RunCanceled, true},
+		{client.RunDiscarded, true},
+		{client.RunPlannedAndFinished, true},
+		{client.RunPlannedAndSaved, true},
+		{client.RunPending, false},
+		{client.RunPlanning, false},
+		{client.RunApplying, false},
 	}
 
 	for _, tt := range tests {
@@ -677,7 +672,7 @@ func TestIsTerminalStatus(t *testing.T) {
 
 func TestFormatStatusUpdate(t *testing.T) {
 	ts := time.Date(2026, 2, 14, 10, 30, 45, 0, time.UTC)
-	got := formatStatusUpdate(ts, tfe.RunApplying)
+	got := formatStatusUpdate(ts, client.RunApplying)
 	want := "2026-02-14 10:30:45  Status: applying"
 	if got != want {
 		t.Errorf("formatStatusUpdate() = %q, want %q", got, want)
@@ -689,43 +684,39 @@ func TestRunShow_Watch_StatusChange(t *testing.T) {
 	viper.Set("json", false)
 
 	mock := &mockRunShowServiceWithWatch{
-		runs: []*tfe.Run{
+		runs: []*client.Run{
 			{
 				ID:               "run-watch123",
-				Status:           tfe.RunPlanning,
+				Status:           client.RunPlanning,
 				Message:          "Planning",
 				TerraformVersion: "1.5.0",
 				HasChanges:       true,
-				IsDestroy:        false,
 				CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
 			},
 			{
 				ID:               "run-watch123",
-				Status:           tfe.RunPlanning,
+				Status:           client.RunPlanning,
 				Message:          "Planning",
 				TerraformVersion: "1.5.0",
 				HasChanges:       true,
-				IsDestroy:        false,
 				CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
 			},
 			{
 				ID:               "run-watch123",
-				Status:           tfe.RunApplying,
+				Status:           client.RunApplying,
 				Message:          "Planning",
 				TerraformVersion: "1.5.0",
 				HasChanges:       true,
-				IsDestroy:        false,
 				CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
 			},
 			{
 				ID:               "run-watch123",
-				Status:           tfe.RunApplied,
+				Status:           client.RunApplied,
 				Message:          "Planning",
 				TerraformVersion: "1.5.0",
 				HasChanges:       true,
-				IsDestroy:        false,
 				CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
-				Plan: &tfe.Plan{
+				Plan: &client.Plan{
 					ResourceAdditions:    1,
 					ResourceChanges:      2,
 					ResourceDestructions: 3,
@@ -786,23 +777,21 @@ func TestRunShow_Watch_JSON(t *testing.T) {
 	viper.Set("json", true)
 
 	mock := &mockRunShowServiceWithWatch{
-		runs: []*tfe.Run{
+		runs: []*client.Run{
 			{
 				ID:               "run-watch-json",
-				Status:           tfe.RunPlanning,
+				Status:           client.RunPlanning,
 				Message:          "Planning",
 				TerraformVersion: "1.5.0",
 				HasChanges:       true,
-				IsDestroy:        false,
 				CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
 			},
 			{
 				ID:               "run-watch-json",
-				Status:           tfe.RunApplied,
+				Status:           client.RunApplied,
 				Message:          "Applied",
 				TerraformVersion: "1.5.0",
 				HasChanges:       true,
-				IsDestroy:        false,
 				CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
 			},
 		},
@@ -847,14 +836,13 @@ func TestRunShow_Watch_AlreadyTerminal(t *testing.T) {
 	viper.Set("json", false)
 
 	mock := &mockRunShowServiceWithWatch{
-		runs: []*tfe.Run{
+		runs: []*client.Run{
 			{
 				ID:               "run-terminal",
-				Status:           tfe.RunApplied,
+				Status:           client.RunApplied,
 				Message:          "Already applied",
 				TerraformVersion: "1.5.0",
 				HasChanges:       true,
-				IsDestroy:        false,
 				CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
 			},
 		},
@@ -898,33 +886,30 @@ func TestRunShow_Watch_APIError(t *testing.T) {
 	viper.Set("json", false)
 
 	mock := &mockRunShowServiceWithWatch{
-		runs: []*tfe.Run{
+		runs: []*client.Run{
 			{
 				ID:               "run-error",
-				Status:           tfe.RunPlanning,
+				Status:           client.RunPlanning,
 				Message:          "Planning",
 				TerraformVersion: "1.5.0",
 				HasChanges:       true,
-				IsDestroy:        false,
 				CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
 			},
 			// Second and subsequent calls return error, then succeed
 			{
 				ID:               "run-error",
-				Status:           tfe.RunPlanning,
+				Status:           client.RunPlanning,
 				Message:          "Planning",
 				TerraformVersion: "1.5.0",
 				HasChanges:       true,
-				IsDestroy:        false,
 				CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
 			},
 			{
 				ID:               "run-error",
-				Status:           tfe.RunApplied,
+				Status:           client.RunApplied,
 				Message:          "Applied",
 				TerraformVersion: "1.5.0",
 				HasChanges:       true,
-				IsDestroy:        false,
 				CreatedAt:        time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC),
 			},
 		},
@@ -977,16 +962,16 @@ func TestRunShow_Watch_APIError(t *testing.T) {
 
 // mockRunShowServiceWithWatchError simulates API error on second call
 type mockRunShowServiceWithWatchError struct {
-	initialRun *tfe.Run
-	finalRun   *tfe.Run
+	initialRun *client.Run
+	finalRun   *client.Run
 	callCount  int
 }
 
-func (m *mockRunShowServiceWithWatchError) ListRuns(_ context.Context, _ string, _ *tfe.RunListOptions) (*tfe.RunList, error) {
+func (m *mockRunShowServiceWithWatchError) ListRuns(_ context.Context, _ string, _ *client.RunListOptions) (*client.RunList, error) {
 	return nil, nil
 }
 
-func (m *mockRunShowServiceWithWatchError) ReadRun(_ context.Context, _ string) (*tfe.Run, error) {
+func (m *mockRunShowServiceWithWatchError) ReadRun(_ context.Context, _ string) (*client.Run, error) {
 	m.callCount++
 	if m.callCount == 1 {
 		return m.initialRun, nil
@@ -997,15 +982,15 @@ func (m *mockRunShowServiceWithWatchError) ReadRun(_ context.Context, _ string) 
 	return m.finalRun, nil
 }
 
-func (m *mockRunShowServiceWithWatchError) ListWorkspaces(_ context.Context, _ string, _ *tfe.WorkspaceListOptions) (*tfe.WorkspaceList, error) {
+func (m *mockRunShowServiceWithWatchError) ListWorkspaces(_ context.Context, _ string, _ *client.WorkspaceListOptions) (*client.WorkspaceList, error) {
 	return nil, nil
 }
 
-func (m *mockRunShowServiceWithWatchError) ReadWorkspace(_ context.Context, _, _ string) (*tfe.Workspace, error) {
+func (m *mockRunShowServiceWithWatchError) ReadWorkspace(_ context.Context, _, _ string) (*client.Workspace, error) {
 	return nil, nil
 }
 
-func (m *mockRunShowServiceWithWatchError) ReadRunWithApply(_ context.Context, _ string) (*tfe.Run, error) {
+func (m *mockRunShowServiceWithWatchError) ReadRunWithApply(_ context.Context, _ string) (*client.Run, error) {
 	m.callCount++
 	if m.callCount == 1 {
 		return m.initialRun, nil
@@ -1095,10 +1080,10 @@ func TestRunShow_PlanJSON(t *testing.T) {
 
 	mock := &mockRunShowServiceExtended{
 		mockRunShowService: mockRunShowService{
-			run: &tfe.Run{
+			run: &client.Run{
 				ID:     "run-abc123",
-				Status: tfe.RunApplied,
-				Plan: &tfe.Plan{
+				Status: client.RunApplied,
+				Plan: &client.Plan{
 					ID:                   "plan-xyz",
 					ResourceAdditions:    2,
 					ResourceChanges:      1,
@@ -1158,10 +1143,10 @@ func TestRunShow_PlanJSON_JSONMode(t *testing.T) {
 
 	mock := &mockRunShowServiceExtended{
 		mockRunShowService: mockRunShowService{
-			run: &tfe.Run{
+			run: &client.Run{
 				ID:     "run-abc123",
-				Status: tfe.RunApplied,
-				Plan: &tfe.Plan{
+				Status: client.RunApplied,
+				Plan: &client.Plan{
 					ID:                   "plan-xyz",
 					ResourceAdditions:    2,
 					ResourceChanges:      1,
@@ -1229,9 +1214,9 @@ func TestRunShow_PlanJSON_NoPlan(t *testing.T) {
 
 	mock := &mockRunShowServiceExtended{
 		mockRunShowService: mockRunShowService{
-			run: &tfe.Run{
+			run: &client.Run{
 				ID:     "run-abc123",
-				Status: tfe.RunPlanned,
+				Status: client.RunPlanned,
 				Plan:   nil, // No plan
 			},
 		},

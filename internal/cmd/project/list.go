@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	tfe "github.com/hashicorp/go-tfe/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -52,11 +51,11 @@ func newCmdProjectListWith(clientFn projectListClientFactory) *cobra.Command {
 
 func runProjectList(svc client.ProjectService, org string) error {
 	ctx := context.Background()
-	opts := &tfe.ProjectListOptions{
-		ListOptions: tfe.ListOptions{PageSize: 100},
+	opts := &client.ProjectListOptions{
+		ListOptions: client.ListOptions{PageSize: 100},
 	}
 
-	var allItems []*tfe.Project
+	var allItems []*client.Project
 	for {
 		projList, err := svc.ListProjects(ctx, org, opts)
 		if err != nil {

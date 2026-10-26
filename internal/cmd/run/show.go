@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	tfe "github.com/hashicorp/go-tfe/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -146,7 +145,7 @@ func runRunShowWithInterval(svc runShowService, runID string, org string, worksp
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	var r *tfe.Run
+	var r *client.Run
 	var err error
 
 	switch {
@@ -163,8 +162,8 @@ func runRunShowWithInterval(svc runShowService, runID string, org string, worksp
 			return fmt.Errorf("failed to read workspace %q: %w", workspaceName, err)
 		}
 
-		runList, err := svc.ListRuns(ctx, ws.ID, &tfe.RunListOptions{
-			ListOptions: tfe.ListOptions{PageSize: 1},
+		runList, err := svc.ListRuns(ctx, ws.ID, &client.RunListOptions{
+			ListOptions: client.ListOptions{PageSize: 1},
 			Operation:   "plan_and_apply,plan_only,refresh_only,destroy,empty_apply,save_plan",
 		})
 		if err != nil {
@@ -210,7 +209,7 @@ func runRunShowWithInterval(svc runShowService, runID string, org string, worksp
 	return displayRun(r, resourceChanges)
 }
 
-func displayRun(r *tfe.Run, resourceChanges []resourceChange) error {
+func displayRun(r *client.Run, resourceChanges []resourceChange) error {
 	if viper.GetBool("json") {
 		return output.PrintJSON(os.Stdout, toRunShowJSON(r, resourceChanges))
 	}
@@ -420,8 +419,8 @@ func extractAttributeChanges(before, after map[string]interface{}) map[string]ch
 	return changes
 }
 
-// toRunShowJSON converts a tfe.Run to runShowJSON structure.
-func toRunShowJSON(r *tfe.Run, resourceChanges []resourceChange) runShowJSON {
+// toRunShowJSON converts a client.Run to runShowJSON structure.
+func toRunShowJSON(r *client.Run, resourceChanges []resourceChange) runShowJSON {
 	var additions, changes, destructions int
 	if r.Plan != nil {
 		additions = r.Plan.ResourceAdditions
@@ -453,7 +452,7 @@ func toRunShowJSON(r *tfe.Run, resourceChanges []resourceChange) runShowJSON {
 }
 
 // displayPlanJSON outputs the plan JSON details.
-func displayPlanJSON(ctx context.Context, svc runShowService, r *tfe.Run) error {
+func displayPlanJSON(ctx context.Context, svc runShowService, r *client.Run) error {
 	if r.Plan == nil {
 		return fmt.Errorf("this run does not have a plan")
 	}

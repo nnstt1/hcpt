@@ -7,8 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	tfe "github.com/hashicorp/go-tfe/v2"
 	"github.com/spf13/viper"
+
+	"github.com/nnstt1/hcpt/internal/client"
 )
 
 func TestVariableSet_Create(t *testing.T) {
@@ -16,16 +17,16 @@ func TestVariableSet_Create(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockVariableListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		variables: []*tfe.Variable{},
-		createVar: &tfe.Variable{Key: "NEW_VAR"},
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		variables: []*client.Variable{},
+		createVar: &client.Variable{Key: "NEW_VAR"},
 	}
 
 	oldStderr := os.Stderr
 	r, w, _ := os.Pipe()
 	os.Stderr = w
 
-	err := runVariableSet(mock, "test-org", "my-ws", "NEW_VAR", "new-value", tfe.CategoryTerraform, false, false, "")
+	err := runVariableSet(mock, "test-org", "my-ws", "NEW_VAR", "new-value", client.CategoryTerraform, false, false, "")
 
 	_ = w.Close()
 	os.Stderr = oldStderr
@@ -48,23 +49,23 @@ func TestVariableSet_Update(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockVariableListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		variables: []*tfe.Variable{
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		variables: []*client.Variable{
 			{
 				ID:       "var-123",
 				Key:      "EXISTING_VAR",
 				Value:    "old-value",
-				Category: tfe.CategoryTerraform,
+				Category: client.CategoryTerraform,
 			},
 		},
-		updateVar: &tfe.Variable{Key: "EXISTING_VAR"},
+		updateVar: &client.Variable{Key: "EXISTING_VAR"},
 	}
 
 	oldStderr := os.Stderr
 	r, w, _ := os.Pipe()
 	os.Stderr = w
 
-	err := runVariableSet(mock, "test-org", "my-ws", "EXISTING_VAR", "new-value", tfe.CategoryTerraform, false, false, "")
+	err := runVariableSet(mock, "test-org", "my-ws", "EXISTING_VAR", "new-value", client.CategoryTerraform, false, false, "")
 
 	_ = w.Close()
 	os.Stderr = oldStderr
@@ -87,12 +88,12 @@ func TestVariableSet_CreateError(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockVariableListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		variables: []*tfe.Variable{},
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		variables: []*client.Variable{},
 		createErr: fmt.Errorf("create api error"),
 	}
 
-	err := runVariableSet(mock, "test-org", "my-ws", "NEW_VAR", "value", tfe.CategoryTerraform, false, false, "")
+	err := runVariableSet(mock, "test-org", "my-ws", "NEW_VAR", "value", client.CategoryTerraform, false, false, "")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -106,18 +107,18 @@ func TestVariableSet_UpdateError(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockVariableListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		variables: []*tfe.Variable{
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		variables: []*client.Variable{
 			{
 				ID:       "var-123",
 				Key:      "EXISTING_VAR",
-				Category: tfe.CategoryTerraform,
+				Category: client.CategoryTerraform,
 			},
 		},
 		updateErr: fmt.Errorf("update api error"),
 	}
 
-	err := runVariableSet(mock, "test-org", "my-ws", "EXISTING_VAR", "value", tfe.CategoryTerraform, false, false, "")
+	err := runVariableSet(mock, "test-org", "my-ws", "EXISTING_VAR", "value", client.CategoryTerraform, false, false, "")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -226,7 +227,7 @@ func TestVariableSet_WorkspaceReadError(t *testing.T) {
 		readErr: fmt.Errorf("workspace not found"),
 	}
 
-	err := runVariableSet(mock, "test-org", "my-ws", "KEY", "VALUE", tfe.CategoryTerraform, false, false, "")
+	err := runVariableSet(mock, "test-org", "my-ws", "KEY", "VALUE", client.CategoryTerraform, false, false, "")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -240,9 +241,9 @@ func TestVariableSet_EnvCategory(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockVariableListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		variables: []*tfe.Variable{},
-		createVar: &tfe.Variable{Key: "ENV_VAR"},
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		variables: []*client.Variable{},
+		createVar: &client.Variable{Key: "ENV_VAR"},
 	}
 
 	cmd := newCmdVariableSetWith(func() (variableSetService, error) {

@@ -7,8 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	tfe "github.com/hashicorp/go-tfe/v2"
 	"github.com/spf13/viper"
+
+	"github.com/nnstt1/hcpt/internal/client"
 )
 
 func TestVariableDelete_Success(t *testing.T) {
@@ -16,12 +17,12 @@ func TestVariableDelete_Success(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockVariableListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		variables: []*tfe.Variable{
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		variables: []*client.Variable{
 			{
 				ID:       "var-123",
 				Key:      "MY_VAR",
-				Category: tfe.CategoryTerraform,
+				Category: client.CategoryTerraform,
 			},
 		},
 	}
@@ -30,7 +31,7 @@ func TestVariableDelete_Success(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stderr = w
 
-	err := runVariableDelete(mock, "test-org", "my-ws", "MY_VAR", tfe.CategoryTerraform)
+	err := runVariableDelete(mock, "test-org", "my-ws", "MY_VAR", client.CategoryTerraform)
 
 	_ = w.Close()
 	os.Stderr = oldStderr
@@ -53,11 +54,11 @@ func TestVariableDelete_NotFound(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockVariableListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		variables: []*tfe.Variable{},
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		variables: []*client.Variable{},
 	}
 
-	err := runVariableDelete(mock, "test-org", "my-ws", "NONEXISTENT", tfe.CategoryTerraform)
+	err := runVariableDelete(mock, "test-org", "my-ws", "NONEXISTENT", client.CategoryTerraform)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -71,18 +72,18 @@ func TestVariableDelete_DeleteError(t *testing.T) {
 	viper.Set("org", "test-org")
 
 	mock := &mockVariableListService{
-		workspace: &tfe.Workspace{ID: "ws-abc123", Name: "my-ws"},
-		variables: []*tfe.Variable{
+		workspace: &client.Workspace{ID: "ws-abc123", Name: "my-ws"},
+		variables: []*client.Variable{
 			{
 				ID:       "var-123",
 				Key:      "MY_VAR",
-				Category: tfe.CategoryTerraform,
+				Category: client.CategoryTerraform,
 			},
 		},
 		deleteErr: fmt.Errorf("delete api error"),
 	}
 
-	err := runVariableDelete(mock, "test-org", "my-ws", "MY_VAR", tfe.CategoryTerraform)
+	err := runVariableDelete(mock, "test-org", "my-ws", "MY_VAR", client.CategoryTerraform)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -191,7 +192,7 @@ func TestVariableDelete_WorkspaceReadError(t *testing.T) {
 		readErr: fmt.Errorf("workspace not found"),
 	}
 
-	err := runVariableDelete(mock, "test-org", "my-ws", "KEY", tfe.CategoryTerraform)
+	err := runVariableDelete(mock, "test-org", "my-ws", "KEY", client.CategoryTerraform)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
