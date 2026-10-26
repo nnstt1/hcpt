@@ -494,9 +494,7 @@ func TestGetRunIDFromPR_SingleRun(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	baseURL, _ := url.Parse(ts.URL + "/")
-	ghClient := github.NewClient(nil)
-	ghClient.BaseURL = baseURL
+	ghClient := newTestGitHubClient(t, ts.URL)
 	gcw := &GitHubClientWrapper{client: ghClient}
 
 	runID, err := gcw.GetRunIDFromPR(context.Background(), "owner", "repo", 1, "")
@@ -525,9 +523,7 @@ func TestGetRunIDFromPR_WithWorkspaceFilter(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	baseURL, _ := url.Parse(ts.URL + "/")
-	ghClient := github.NewClient(nil)
-	ghClient.BaseURL = baseURL
+	ghClient := newTestGitHubClient(t, ts.URL)
 	gcw := &GitHubClientWrapper{client: ghClient}
 
 	runID, err := gcw.GetRunIDFromPR(context.Background(), "owner", "repo", 2, "workspace-b")
@@ -556,9 +552,7 @@ func TestGetRunIDFromPR_MultipleRunsNoFilter(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	baseURL, _ := url.Parse(ts.URL + "/")
-	ghClient := github.NewClient(nil)
-	ghClient.BaseURL = baseURL
+	ghClient := newTestGitHubClient(t, ts.URL)
 	gcw := &GitHubClientWrapper{client: ghClient}
 
 	_, err := gcw.GetRunIDFromPR(context.Background(), "owner", "repo", 3, "")
@@ -584,9 +578,7 @@ func TestGetRunIDFromPR_NoRuns(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	baseURL, _ := url.Parse(ts.URL + "/")
-	ghClient := github.NewClient(nil)
-	ghClient.BaseURL = baseURL
+	ghClient := newTestGitHubClient(t, ts.URL)
 	gcw := &GitHubClientWrapper{client: ghClient}
 
 	_, err := gcw.GetRunIDFromPR(context.Background(), "owner", "repo", 4, "")
@@ -612,9 +604,7 @@ func TestGetRunIDFromPR_WorkspaceNotFound(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	baseURL, _ := url.Parse(ts.URL + "/")
-	ghClient := github.NewClient(nil)
-	ghClient.BaseURL = baseURL
+	ghClient := newTestGitHubClient(t, ts.URL)
 	gcw := &GitHubClientWrapper{client: ghClient}
 
 	_, err := gcw.GetRunIDFromPR(context.Background(), "owner", "repo", 5, "nonexistent-workspace")
@@ -624,4 +614,13 @@ func TestGetRunIDFromPR_WorkspaceNotFound(t *testing.T) {
 	if !strings.Contains(err.Error(), "no HCP Terraform run found for workspace") {
 		t.Errorf("expected workspace not found error, got: %v", err)
 	}
+}
+
+func newTestGitHubClient(t *testing.T, serverURL string) *github.Client {
+	t.Helper()
+	c, err := github.NewClient(github.WithEnterpriseURLs(serverURL+"/", serverURL+"/"))
+	if err != nil {
+		t.Fatalf("failed to create GitHub client: %v", err)
+	}
+	return c
 }
